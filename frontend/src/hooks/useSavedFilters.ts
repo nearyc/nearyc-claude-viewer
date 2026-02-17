@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
-const STORAGE_KEY = 'claude-viewer-saved-filters';
+const LEGACY_STORAGE_KEY = 'claude-viewer-saved-filters';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export interface FilterCondition {
   id: string;
@@ -16,35 +17,137 @@ export interface SavedFilters {
   [filterId: string]: FilterCondition;
 }
 
+// API SavedFilter structure
+interface ApiSavedFilter {
+  id: string;
+  name: string;
+  filter: {
+    projectFilter?: string | null;
+    tagFilter?: string | null;
+    searchQuery?: string;
+    showOnlyStarred?: boolean;
+  };
+  createdAt: string;
+}
+
 /**
- * Hook for managing saved filter conditions with localStorage persistence
+ * Hook for managing saved filter conditions with API persistence
  */
 export const useSavedFilters = () => {
-  const [savedFilters, setSavedFilters] = useState<SavedFilters>(() => {
-    if (typeof window === 'undefined') return {};
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved) : {};
-    } catch {
-      return {};
-    }
-  });
+  const [savedFilters, setSavedFilters] = useState<SavedFilters>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const isInitialized = useRef(false);
 
-  // Persist to localStorage
+  // Load saved filters from API on mount
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(savedFilters));
-    }
-  }, [savedFilters]);
+    const loadFilters = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/favorites/saved-filters`);
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success) {
+            const apiFilters: ApiSavedFilter[] = result.data;
+            let filters: SavedFilters = {};
+
+            // Convert API format to local format
+            for (const apiFilter of apiFilters) {
+              filters[apiFilter.id] = {
+                id: apiFilter.id,
+                name: apiFilter.name,
+                projectFilter: apiFilter.filter.projectFilter,
+                tagFilter: apiFilter.filter.tagFilter,
+                searchQuery: apiFilter.filter.searchQuery,
+                showOnlyStarred: apiFilter.filter.showOnlyStarred,
+                createdAt: new Date(apiFilter.createdAt).getTime(),
+              };
+            }
+
+            // Migration: if API data is empty, check localStorage for legacy data
+            if (Object.keys(filters).length === 0) {
+              const legacyData = localStorage.getItem(LEGACY_STORAGE_KEY);
+              if (legacyData) {
+                try {
+                  const parsed = JSON.parse(legacyData) as SavedFilters;
+                  if (Object.keys(parsed).length > 0) {
+                    console.log('[SavedFilters] Migrating legacy data to API');
+                    filters = parsed;
+                    // Migrate each filter to API
+                    for (const filter of Object.values(parsed)) {
+                      await fetch(`${API_BASE_URL}/api/favorites/saved-filters`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          name: filter.name,
+                          filter: {
+                            projectFilter: filter.projectFilter,
+                            tagFilter: filter.tagFilter,
+                            searchQuery: filter.searchQuery,
+                            showOnlyStarred: filter.showOnlyStarred,
+                          },
+                        }),
+                      });
+                    }
+                    // Clear legacy data
+                    localStorage.removeItem(LEGACY_STORAGE_KEY);
+                    // Reload from API to get proper IDs
+                    const reloadResponse = await fetch(`${API_BASE_URL}/api/favorites/saved-filters`);
+                    if (reloadResponse.ok) {
+                      const reloadResult = await reloadResponse.json();
+                      if (reloadResult.success) {
+                        filters = {};
+                        for (const apiFilter of reloadResult.data as ApiSavedFilter[]) {
+                          filters[apiFilter.id] = {
+                            id: apiFilter.id,
+                            name: apiFilter.name,
+                            projectFilter: apiFilter.filter.projectFilter,
+                            tagFilter: apiFilter.filter.tagFilter,
+                            searchQuery: apiFilter.filter.searchQuery,
+                            showOnlyStarred: apiFilter.filter.showOnlyStarred,
+                            createdAt: new Date(apiFilter.createdAt).getTime(),
+                          };
+                        }
+                      }
+                    }
+                  }
+                } catch (e) {
+                  console.error('[SavedFilters] Failed to parse legacy data:', e);
+                }
+              }
+            }
+
+            setSavedFilters(filters);
+          }
+        } else {
+          console.error('[SavedFilters] Failed to load from API, falling back to localStorage');
+          const legacyData = localStorage.getItem(LEGACY_STORAGE_KEY);
+          if (legacyData) {
+            setSavedFilters(JSON.parse(legacyData) || {});
+          }
+        }
+      } catch (error) {
+        console.error('[SavedFilters] Error loading filters:', error);
+        const legacyData = localStorage.getItem(LEGACY_STORAGE_KEY);
+        if (legacyData) {
+          setSavedFilters(JSON.parse(legacyData) || {});
+        }
+      } finally {
+        setIsLoading(false);
+        isInitialized.current = true;
+      }
+    };
+
+    loadFilters();
+  }, []);
 
   /**
    * Save a new filter condition
    */
   const saveFilter = useCallback(
-    (name: string, conditions: Omit<FilterCondition, 'id' | 'name' | 'createdAt'>): string => {
-      const id = `filter-${Date.now()}`;
-      const newFilter: FilterCondition = {
-        id,
+    async (name: string, conditions: Omit<FilterCondition, 'id' | 'name' | 'createdAt'>): Promise<string> => {
+      // Optimistically create local filter (will be replaced with API response)
+      const tempId = `temp-${Date.now()}`;
+      const tempFilter: FilterCondition = {
+        id: tempId,
         name,
         ...conditions,
         createdAt: Date.now(),
@@ -52,10 +155,63 @@ export const useSavedFilters = () => {
 
       setSavedFilters((prev) => ({
         ...prev,
-        [id]: newFilter,
+        [tempId]: tempFilter,
       }));
 
-      return id;
+      // Sync to API
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/favorites/saved-filters`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name,
+            filter: {
+              projectFilter: conditions.projectFilter,
+              tagFilter: conditions.tagFilter,
+              searchQuery: conditions.searchQuery,
+              showOnlyStarred: conditions.showOnlyStarred,
+            },
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to save filter');
+        }
+
+        const result = await response.json();
+        if (result.success) {
+          const apiFilter: ApiSavedFilter = result.data;
+          const newFilter: FilterCondition = {
+            id: apiFilter.id,
+            name: apiFilter.name,
+            projectFilter: apiFilter.filter.projectFilter,
+            tagFilter: apiFilter.filter.tagFilter,
+            searchQuery: apiFilter.filter.searchQuery,
+            showOnlyStarred: apiFilter.filter.showOnlyStarred,
+            createdAt: new Date(apiFilter.createdAt).getTime(),
+          };
+
+          // Replace temp filter with real one
+          setSavedFilters((prev) => {
+            const { [tempId]: _, ...rest } = prev;
+            return {
+              ...rest,
+              [newFilter.id]: newFilter,
+            };
+          });
+
+          return newFilter.id;
+        }
+        throw new Error('Invalid response from API');
+      } catch (error) {
+        console.error('[SavedFilters] Error saving filter:', error);
+        // Remove temp filter on error
+        setSavedFilters((prev) => {
+          const { [tempId]: _, ...rest } = prev;
+          return rest;
+        });
+        throw error;
+      }
     },
     []
   );
@@ -63,11 +219,26 @@ export const useSavedFilters = () => {
   /**
    * Delete a saved filter
    */
-  const deleteFilter = useCallback((id: string): void => {
+  const deleteFilter = useCallback(async (id: string): Promise<void> => {
+    // Optimistically update local state
     setSavedFilters((prev) => {
       const { [id]: _, ...rest } = prev;
       return rest;
     });
+
+    // Sync to API
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/favorites/saved-filters/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete filter');
+      }
+    } catch (error) {
+      console.error('[SavedFilters] Error deleting filter:', error);
+      // State already updated, no need to revert
+    }
   }, []);
 
   /**
@@ -91,14 +262,50 @@ export const useSavedFilters = () => {
    * Update an existing filter
    */
   const updateFilter = useCallback(
-    (id: string, updates: Partial<Omit<FilterCondition, 'id' | 'createdAt'>>): boolean => {
+    async (id: string, updates: Partial<Omit<FilterCondition, 'id' | 'createdAt'>>): Promise<boolean> => {
       if (!savedFilters[id]) return false;
 
+      const currentFilter = savedFilters[id];
+      const updatedFilter: FilterCondition = {
+        ...currentFilter,
+        ...updates,
+      };
+
+      // Optimistically update local state
       setSavedFilters((prev) => ({
         ...prev,
-        [id]: { ...prev[id], ...updates },
+        [id]: updatedFilter,
       }));
-      return true;
+
+      // Sync to API
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/favorites/saved-filters/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: updatedFilter.name,
+            filter: {
+              projectFilter: updatedFilter.projectFilter,
+              tagFilter: updatedFilter.tagFilter,
+              searchQuery: updatedFilter.searchQuery,
+              showOnlyStarred: updatedFilter.showOnlyStarred,
+            },
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to update filter');
+        }
+        return true;
+      } catch (error) {
+        console.error('[SavedFilters] Error updating filter:', error);
+        // Revert on error
+        setSavedFilters((prev) => ({
+          ...prev,
+          [id]: currentFilter,
+        }));
+        return false;
+      }
     },
     [savedFilters]
   );
@@ -106,9 +313,25 @@ export const useSavedFilters = () => {
   /**
    * Clear all saved filters
    */
-  const clearAllFilters = useCallback((): void => {
+  const clearAllFilters = useCallback(async (): Promise<void> => {
+    const currentFilters = { ...savedFilters };
     setSavedFilters({});
-  }, []);
+
+    // Delete all filters from API
+    try {
+      await Promise.all(
+        Object.keys(currentFilters).map((id) =>
+          fetch(`${API_BASE_URL}/api/favorites/saved-filters/${id}`, {
+            method: 'DELETE',
+          })
+        )
+      );
+    } catch (error) {
+      console.error('[SavedFilters] Error clearing filters:', error);
+      // Restore on error
+      setSavedFilters(currentFilters);
+    }
+  }, [savedFilters]);
 
   /**
    * Check if a filter with the same conditions already exists
@@ -129,6 +352,7 @@ export const useSavedFilters = () => {
 
   return {
     savedFilters,
+    isLoading,
     saveFilter,
     deleteFilter,
     getFilter,

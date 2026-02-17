@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 
 interface TeamNameMap {
   [teamId: string]: string;
@@ -7,52 +7,145 @@ interface TeamNameMap {
 interface TeamNamesContextType {
   teamNames: TeamNameMap;
   getTeamName: (teamId: string) => string | undefined;
-  setTeamName: (teamId: string, name: string) => void;
-  removeTeamName: (teamId: string) => void;
+  setTeamName: (teamId: string, name: string) => Promise<void>;
+  removeTeamName: (teamId: string) => Promise<void>;
   hasCustomName: (teamId: string) => boolean;
   getCustomNamedTeamIds: () => string[];
+  isLoading: boolean;
 }
 
-const STORAGE_KEY = 'claude-viewer-team-names';
+// Legacy localStorage key for migration
+const LEGACY_STORAGE_KEY = 'claude-viewer-team-names';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 const TeamNamesContext = createContext<TeamNamesContextType | null>(null);
 
 export function TeamNamesProvider({ children }: { children: React.ReactNode }) {
-  const [teamNames, setTeamNames] = useState<TeamNameMap>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved) : {};
-    } catch {
-      return {};
-    }
-  });
+  const [teamNames, setTeamNames] = useState<TeamNameMap>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const isInitialized = useRef(false);
 
-  // Persist to localStorage whenever teamNames changes
+  // Load team names from API on mount
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(teamNames));
-    } catch (error) {
-      console.error('Failed to save team names:', error);
-    }
-  }, [teamNames]);
+    const loadTeamNames = async () => {
+      try {
+        // First, try to load from API
+        const response = await fetch(`${API_BASE_URL}/api/favorites/team-names`);
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success) {
+            let data = result.data;
+
+            // Migration: if API data is empty, check localStorage for legacy data
+            if (Object.keys(data).length === 0) {
+              const legacyData = localStorage.getItem(LEGACY_STORAGE_KEY);
+              if (legacyData) {
+                try {
+                  const parsed = JSON.parse(legacyData);
+                  if (Object.keys(parsed).length > 0) {
+                    console.log('[TeamNames] Migrating legacy data to API');
+                    data = parsed;
+                    // Migrate each team name individually
+                    for (const [teamId, name] of Object.entries(parsed)) {
+                      await fetch(`${API_BASE_URL}/api/favorites/team-names/${teamId}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name }),
+                      });
+                    }
+                    // Clear legacy data
+                    localStorage.removeItem(LEGACY_STORAGE_KEY);
+                  }
+                } catch (e) {
+                  console.error('[TeamNames] Failed to parse legacy data:', e);
+                }
+              }
+            }
+
+            setTeamNames(data);
+          }
+        } else {
+          console.error('[TeamNames] Failed to load from API, falling back to localStorage');
+          // Fallback to localStorage
+          const legacyData = localStorage.getItem(LEGACY_STORAGE_KEY);
+          if (legacyData) {
+            setTeamNames(JSON.parse(legacyData) || {});
+          }
+        }
+      } catch (error) {
+        console.error('[TeamNames] Error loading team names:', error);
+        // Fallback to localStorage on error
+        const legacyData = localStorage.getItem(LEGACY_STORAGE_KEY);
+        if (legacyData) {
+          setTeamNames(JSON.parse(legacyData) || {});
+        }
+      } finally {
+        setIsLoading(false);
+        isInitialized.current = true;
+      }
+    };
+
+    loadTeamNames();
+  }, []);
 
   const getTeamName = useCallback((teamId: string): string | undefined => {
     return teamNames[teamId];
   }, [teamNames]);
 
-  const setTeamName = useCallback((teamId: string, name: string) => {
+  const setTeamName = useCallback(async (teamId: string, name: string) => {
+    const trimmedName = name.trim();
+
+    // Optimistically update local state
     setTeamNames(prev => ({
       ...prev,
-      [teamId]: name.trim(),
+      [teamId]: trimmedName,
     }));
+
+    // Sync to API
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/favorites/team-names/${teamId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: trimmedName }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save team name');
+      }
+    } catch (error) {
+      console.error('[TeamNames] Error saving team name:', error);
+      // Revert local state on error
+      setTeamNames(prev => {
+        const newMap = { ...prev };
+        delete newMap[teamId];
+        return newMap;
+      });
+      throw error;
+    }
   }, []);
 
-  const removeTeamName = useCallback((teamId: string) => {
+  const removeTeamName = useCallback(async (teamId: string) => {
+    // Optimistically update local state
     setTeamNames(prev => {
       const newMap = { ...prev };
       delete newMap[teamId];
       return newMap;
     });
+
+    // Sync to API
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/favorites/team-names/${teamId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to remove team name');
+      }
+    } catch (error) {
+      console.error('[TeamNames] Error removing team name:', error);
+      throw error;
+    }
   }, []);
 
   const hasCustomName = useCallback((teamId: string): boolean => {
@@ -75,6 +168,7 @@ export function TeamNamesProvider({ children }: { children: React.ReactNode }) {
         removeTeamName,
         hasCustomName,
         getCustomNamedTeamIds,
+        isLoading,
       }}
     >
       {children}

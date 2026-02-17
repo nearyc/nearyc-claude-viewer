@@ -38,7 +38,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const navItems: NavItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'sessions', label: 'Sessions', icon: List, count: stats?.totalSessions },
-    { id: 'projects', label: 'Projects', icon: FolderGit2, count: stats?.totalProjects },
     { id: 'teams', label: 'Agent Teams', icon: Users, count: stats?.totalTeams },
   ];
 

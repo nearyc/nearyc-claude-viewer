@@ -11,10 +11,12 @@ import { createProjectsRouter } from './routes/projects';
 import { createStatsRouter } from './routes/stats';
 import { createExecuteRouter } from './routes/execute';
 import { createSearchRouter } from './routes/search';
+import { createFavoritesRouter } from './routes/favorites';
 import { SessionsService } from './services/sessionsService';
 import { TeamsService } from './services/TeamsService';
 import { StatsService } from './services/statsService';
 import { SearchService } from './services/searchService';
+import { FavoritesService } from './services/favoritesService';
 import { ActivityService, getGlobalActivityService } from './services/activityService';
 import { CodeStatsService } from './services/codeStatsService';
 import { FileWatcher } from './services/fileWatcher';
@@ -32,6 +34,7 @@ export interface ServerInstance {
   activityService?: ActivityService;
   searchService: SearchService;
   codeStatsService: CodeStatsService;
+  favoritesService: FavoritesService;
 }
 
 export function createServerInstance(): ServerInstance {
@@ -49,6 +52,7 @@ export function createServerInstance(): ServerInstance {
   const searchService = new SearchService(sessionsService, teamsService, historyFilePath, teamsDir);
   const codeStatsService = new CodeStatsService(sessionsService, teamsService, historyFilePath, teamsDir);
   const activityService = getGlobalActivityService();
+  const favoritesService = new FavoritesService();
   const fileWatcher = new FileWatcher(historyFilePath, teamsDir);
 
   // Create Express app
@@ -103,6 +107,7 @@ export function createServerInstance(): ServerInstance {
   app.use('/api/stats', createStatsRouter({ statsService, codeStatsService }));
   app.use('/api/search', createSearchRouter({ searchService }));
   app.use('/api/execute', createExecuteRouter());
+  app.use('/api/favorites', createFavoritesRouter({ favoritesService }));
 
   // Health check endpoint
   app.get('/api/health', async (_req, res) => {
@@ -360,5 +365,6 @@ export function createServerInstance(): ServerInstance {
     searchService,
     codeStatsService,
     activityService,
+    favoritesService,
   };
 }

@@ -1,31 +1,81 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
-const STORAGE_KEY = 'claude-viewer-session-tags';
+const LEGACY_STORAGE_KEY = 'claude-viewer-session-tags';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export interface SessionTags {
   [sessionId: string]: string[];
 }
 
 /**
- * Hook for managing session tags with localStorage persistence
+ * Hook for managing session tags with API persistence
  */
 export const useSessionTags = () => {
-  const [tags, setTags] = useState<SessionTags>(() => {
-    if (typeof window === 'undefined') return {};
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved) : {};
-    } catch {
-      return {};
-    }
-  });
+  const [tags, setTags] = useState<SessionTags>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const isInitialized = useRef(false);
 
-  // Persist to localStorage
+  // Load tags from API on mount
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(tags));
-    }
-  }, [tags]);
+    const loadTags = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/favorites/session-tags`);
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success) {
+            let data = result.data;
+
+            // Migration: if API data is empty, check localStorage for legacy data
+            if (Object.keys(data).length === 0) {
+              const legacyData = localStorage.getItem(LEGACY_STORAGE_KEY);
+              if (legacyData) {
+                try {
+                  const parsed = JSON.parse(legacyData);
+                  if (Object.keys(parsed).length > 0) {
+                    console.log('[SessionTags] Migrating legacy data to API');
+                    data = parsed;
+                    // Migrate each session's tags
+                    for (const [sessionId, sessionTags] of Object.entries(parsed)) {
+                      if (Array.isArray(sessionTags) && sessionTags.length > 0) {
+                        await fetch(`${API_BASE_URL}/api/favorites/session-tags/${sessionId}`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ tags: sessionTags }),
+                        });
+                      }
+                    }
+                    // Clear legacy data
+                    localStorage.removeItem(LEGACY_STORAGE_KEY);
+                  }
+                } catch (e) {
+                  console.error('[SessionTags] Failed to parse legacy data:', e);
+                }
+              }
+            }
+
+            setTags(data);
+          }
+        } else {
+          console.error('[SessionTags] Failed to load from API, falling back to localStorage');
+          const legacyData = localStorage.getItem(LEGACY_STORAGE_KEY);
+          if (legacyData) {
+            setTags(JSON.parse(legacyData) || {});
+          }
+        }
+      } catch (error) {
+        console.error('[SessionTags] Error loading tags:', error);
+        const legacyData = localStorage.getItem(LEGACY_STORAGE_KEY);
+        if (legacyData) {
+          setTags(JSON.parse(legacyData) || {});
+        }
+      } finally {
+        setIsLoading(false);
+        isInitialized.current = true;
+      }
+    };
+
+    loadTags();
+  }, []);
 
   /**
    * Get tags for a specific session
@@ -41,15 +91,38 @@ export const useSessionTags = () => {
    * Set tags for a specific session
    */
   const setSessionTags = useCallback(
-    (sessionId: string, sessionTags: string[]): void => {
+    async (sessionId: string, sessionTags: string[]): Promise<void> => {
+      const normalizedTags = sessionTags.map(t => t.trim().toLowerCase()).filter(Boolean);
+
+      // Optimistically update local state
       setTags((prev) => {
-        if (sessionTags.length === 0) {
-          // Remove empty tag arrays
+        if (normalizedTags.length === 0) {
           const { [sessionId]: _, ...rest } = prev;
           return rest;
         }
-        return { ...prev, [sessionId]: sessionTags };
+        return { ...prev, [sessionId]: normalizedTags };
       });
+
+      // Sync to API
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/favorites/session-tags/${sessionId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tags: normalizedTags }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to save session tags');
+        }
+      } catch (error) {
+        console.error('[SessionTags] Error saving tags:', error);
+        // Revert on error
+        setTags((prev) => {
+          const { [sessionId]: _, ...rest } = prev;
+          return rest;
+        });
+        throw error;
+      }
     },
     []
   );
@@ -58,31 +131,55 @@ export const useSessionTags = () => {
    * Add a tag to a session
    */
   const addTag = useCallback(
-    (sessionId: string, tag: string): boolean => {
+    async (sessionId: string, tag: string): Promise<boolean> => {
       const normalizedTag = tag.trim().toLowerCase();
       if (!normalizedTag) return false;
 
-      setTags((prev) => {
-        const currentTags = prev[sessionId] || [];
-        if (currentTags.includes(normalizedTag)) return prev;
-        return {
+      // Check if already exists
+      const currentTags = tags[sessionId] || [];
+      if (currentTags.includes(normalizedTag)) return false;
+
+      // Optimistically update local state
+      setTags((prev) => ({
+        ...prev,
+        [sessionId]: [...(prev[sessionId] || []), normalizedTag],
+      }));
+
+      // Sync to API
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/favorites/session-tags/${sessionId}/add`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tag: normalizedTag }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to add tag');
+        }
+        return true;
+      } catch (error) {
+        console.error('[SessionTags] Error adding tag:', error);
+        // Revert on error
+        setTags((prev) => ({
           ...prev,
-          [sessionId]: [...currentTags, normalizedTag],
-        };
-      });
-      return true;
+          [sessionId]: currentTags,
+        }));
+        return false;
+      }
     },
-    []
+    [tags]
   );
 
   /**
    * Remove a tag from a session
    */
   const removeTag = useCallback(
-    (sessionId: string, tag: string): void => {
+    async (sessionId: string, tag: string): Promise<void> => {
       const normalizedTag = tag.trim().toLowerCase();
+      const currentTags = tags[sessionId] || [];
+
+      // Optimistically update local state
       setTags((prev) => {
-        const currentTags = prev[sessionId] || [];
         const newTags = currentTags.filter((t) => t !== normalizedTag);
         if (newTags.length === 0) {
           const { [sessionId]: _, ...rest } = prev;
@@ -90,8 +187,28 @@ export const useSessionTags = () => {
         }
         return { ...prev, [sessionId]: newTags };
       });
+
+      // Sync to API
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/favorites/session-tags/${sessionId}/remove`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tag: normalizedTag }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to remove tag');
+        }
+      } catch (error) {
+        console.error('[SessionTags] Error removing tag:', error);
+        // Revert on error
+        setTags((prev) => ({
+          ...prev,
+          [sessionId]: currentTags,
+        }));
+      }
     },
-    []
+    [tags]
   );
 
   /**
@@ -133,11 +250,28 @@ export const useSessionTags = () => {
   /**
    * Clear all tags for a session
    */
-  const clearSessionTags = useCallback((sessionId: string): void => {
+  const clearSessionTags = useCallback(async (sessionId: string): Promise<void> => {
+    // Optimistically update local state
     setTags((prev) => {
       const { [sessionId]: _, ...rest } = prev;
       return rest;
     });
+
+    // Sync to API
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/favorites/session-tags/${sessionId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tags: [] }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to clear session tags');
+      }
+    } catch (error) {
+      console.error('[SessionTags] Error clearing tags:', error);
+      // State already updated, no need to revert since clearing is less critical
+    }
   }, []);
 
   /**
@@ -155,6 +289,7 @@ export const useSessionTags = () => {
 
   return {
     tags,
+    isLoading,
     getSessionTags,
     setSessionTags,
     addTag,

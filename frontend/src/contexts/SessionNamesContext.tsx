@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 
 interface SessionNameMap {
   [sessionId: string]: string;
@@ -7,52 +7,143 @@ interface SessionNameMap {
 interface SessionNamesContextType {
   sessionNames: SessionNameMap;
   getSessionName: (sessionId: string) => string | undefined;
-  setSessionName: (sessionId: string, name: string) => void;
-  removeSessionName: (sessionId: string) => void;
+  setSessionName: (sessionId: string, name: string) => Promise<void>;
+  removeSessionName: (sessionId: string) => Promise<void>;
   hasCustomName: (sessionId: string) => boolean;
   getCustomNamedSessionIds: () => string[];
+  isLoading: boolean;
 }
 
-const STORAGE_KEY = 'claude-viewer-session-names';
+// Legacy localStorage key for migration
+const LEGACY_STORAGE_KEY = 'claude-viewer-session-names';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 const SessionNamesContext = createContext<SessionNamesContextType | null>(null);
 
 export function SessionNamesProvider({ children }: { children: React.ReactNode }) {
-  const [sessionNames, setSessionNames] = useState<SessionNameMap>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved) : {};
-    } catch {
-      return {};
-    }
-  });
+  const [sessionNames, setSessionNames] = useState<SessionNameMap>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const isInitialized = useRef(false);
 
-  // Persist to localStorage whenever sessionNames changes
+  // Load session names from API on mount
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionNames));
-    } catch (error) {
-      console.error('Failed to save session names:', error);
-    }
-  }, [sessionNames]);
+    const loadSessionNames = async () => {
+      try {
+        // First, try to load from API
+        const response = await fetch(`${API_BASE_URL}/api/favorites/session-names`);
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success) {
+            let data = result.data;
+
+            // Migration: if API data is empty, check localStorage for legacy data
+            if (Object.keys(data).length === 0) {
+              const legacyData = localStorage.getItem(LEGACY_STORAGE_KEY);
+              if (legacyData) {
+                try {
+                  const parsed = JSON.parse(legacyData);
+                  if (Object.keys(parsed).length > 0) {
+                    console.log('[SessionNames] Migrating legacy data to API');
+                    data = parsed;
+                    // Save legacy data to API
+                    await fetch(`${API_BASE_URL}/api/favorites/session-names`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ names: parsed }),
+                    });
+                    // Clear legacy data
+                    localStorage.removeItem(LEGACY_STORAGE_KEY);
+                  }
+                } catch (e) {
+                  console.error('[SessionNames] Failed to parse legacy data:', e);
+                }
+              }
+            }
+
+            setSessionNames(data);
+          }
+        } else {
+          console.error('[SessionNames] Failed to load from API, falling back to localStorage');
+          // Fallback to localStorage
+          const legacyData = localStorage.getItem(LEGACY_STORAGE_KEY);
+          if (legacyData) {
+            setSessionNames(JSON.parse(legacyData) || {});
+          }
+        }
+      } catch (error) {
+        console.error('[SessionNames] Error loading session names:', error);
+        // Fallback to localStorage on error
+        const legacyData = localStorage.getItem(LEGACY_STORAGE_KEY);
+        if (legacyData) {
+          setSessionNames(JSON.parse(legacyData) || {});
+        }
+      } finally {
+        setIsLoading(false);
+        isInitialized.current = true;
+      }
+    };
+
+    loadSessionNames();
+  }, []);
 
   const getSessionName = useCallback((sessionId: string): string | undefined => {
     return sessionNames[sessionId];
   }, [sessionNames]);
 
-  const setSessionName = useCallback((sessionId: string, name: string) => {
+  const setSessionName = useCallback(async (sessionId: string, name: string) => {
+    const trimmedName = name.trim();
+
+    // Optimistically update local state
     setSessionNames(prev => ({
       ...prev,
-      [sessionId]: name.trim(),
+      [sessionId]: trimmedName,
     }));
+
+    // Sync to API
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/favorites/session-names/${sessionId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: trimmedName }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save session name');
+      }
+    } catch (error) {
+      console.error('[SessionNames] Error saving session name:', error);
+      // Revert local state on error
+      setSessionNames(prev => {
+        const newMap = { ...prev };
+        delete newMap[sessionId];
+        return newMap;
+      });
+      throw error;
+    }
   }, []);
 
-  const removeSessionName = useCallback((sessionId: string) => {
+  const removeSessionName = useCallback(async (sessionId: string) => {
+    // Optimistically update local state
     setSessionNames(prev => {
       const newMap = { ...prev };
       delete newMap[sessionId];
       return newMap;
     });
+
+    // Sync to API
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/favorites/session-names/${sessionId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to remove session name');
+      }
+    } catch (error) {
+      console.error('[SessionNames] Error removing session name:', error);
+      throw error;
+    }
   }, []);
 
   const hasCustomName = useCallback((sessionId: string): boolean => {
@@ -75,6 +166,7 @@ export function SessionNamesProvider({ children }: { children: React.ReactNode }
         removeSessionName,
         hasCustomName,
         getCustomNamedSessionIds,
+        isLoading,
       }}
     >
       {children}

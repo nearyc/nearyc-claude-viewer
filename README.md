@@ -2,6 +2,8 @@
 
 Claude Viewer 是一个集成的监控面板，用于查看 Claude Code 的 Sessions 和 Agent Teams 数据。
 
+![Dashboard 视图](docpng/image1.png)
+
 ## 功能特性
 
 - **Dashboard 视图**: 概览所有 Sessions 和 Teams 的统计信息
@@ -14,8 +16,8 @@ Claude Viewer 是一个集成的监控面板，用于查看 Claude Code 的 Sess
   - 搜索功能（支持全文搜索）
   - 实时消息同步
   - 关联 Team 信息查看
-  - **Session 自定义命名与收藏**: 为 Session 设置自定义名称，收藏后高亮显示
-  - **标签系统**: 为 Session 添加多个标签，支持按标签筛选
+  - **Session 自定义命名与收藏**: 为 Session 设置自定义名称，收藏后高亮显示，数据持久化到 `~/.claude/favorites/`
+  - **标签系统**: 为 Session 添加多个标签，支持按标签筛选，数据持久化存储
   - **批量操作**: 多选 Session 进行批量删除、批量导出
   - **智能筛选栏**: 保存和加载常用筛选条件
   - **一键打开 Claude Code**: 在 Session Detail 中直接打开 PowerShell 并恢复会话
@@ -28,7 +30,7 @@ Claude Viewer 是一个集成的监控面板，用于查看 Claude Code 的 Sess
   - 成员消息面板
   - 实时消息更新
   - 关联 Session 跳转
-  - **Team 自定义命名与收藏**: 为 Team 设置自定义名称，收藏后高亮显示
+  - **Team 自定义命名与收藏**: 为 Team 设置自定义名称，收藏后高亮显示，数据持久化到 `~/.claude/favorites/`
   - **优化的列宽布局**: Team 列表 25%、成员列表 20%、消息面板 55%
 - **全局命令面板 (Cmd+K)**: 快速跳转、搜索和执行命令
 - **深度链接**: URL hash 路由支持，可分享特定视图链接
@@ -54,7 +56,8 @@ claude-viewer/
 │   │   │   ├── teams.ts    # Teams API
 │   │   │   ├── projects.ts # Projects API
 │   │   │   ├── stats.ts    # 统计 API（活动、趋势、使用）
-│   │   │   └── search.ts   # 搜索 API
+│   │   │   ├── search.ts   # 搜索 API
+│   │   │   └── favorites.ts # 收藏 API（Session/Team 名称、标签、筛选器）
 │   │   ├── services/       # 业务逻辑服务
 │   │   │   ├── sessionsService.ts  # Sessions 数据服务
 │   │   │   ├── teamsService.ts     # Teams 数据服务（含消息格式转换）
@@ -62,7 +65,8 @@ claude-viewer/
 │   │   │   ├── statsService.ts     # 统计服务（活动、趋势）
 │   │   │   ├── searchService.ts    # 全文搜索服务
 │   │   │   ├── codeStatsService.ts # 代码产出统计服务
-│   │   │   └── activityService.ts  # 实时活动流服务
+│   │   │   ├── activityService.ts  # 实时活动流服务
+│   │   │   └── favoritesService.ts # 收藏数据持久化服务
 │   │   └── types/          # 类型定义
 │   └── package.json
 ├── frontend/               # 前端应用
@@ -338,6 +342,9 @@ export TEAMS_DIR="~/.claude/teams"
 - 快速跳转到其他视图
 
 ### Sessions 视图
+
+![Sessions 视图](docpng/image2.png)
+
 - 左侧：Session 列表
   - 支持项目筛选和搜索
   - **批量选择**: 多选 Session 进行批量操作
@@ -359,6 +366,9 @@ export TEAMS_DIR="~/.claude/teams"
 - 按项目筛选 Sessions
 
 ### Teams 视图
+
+![Teams 视图](docpng/image3.png)
+
 - 左侧：Team 列表 (25% 宽度)
   - 显示最后活动时间（如 2h ago）
   - 按最近活动排序
@@ -500,6 +510,38 @@ $env:PORT=13928  # 后端使用其他端口
 
 ## 更新日志
 
+### 新功能 (2026-02-18) - 收藏功能持久化
+
+#### 1. 收藏数据持久化存储
+**功能描述**: 将 Session 收藏、Team 收藏、Session 标签、保存的筛选器等数据从浏览器 localStorage 迁移到后端文件存储，解决数据丢失问题。
+
+**实现细节**:
+- 新增 `favoritesService.ts` 服务，管理 `~/.claude/favorites/favorites.json` 文件
+- 新增 `/api/favorites` REST API 端点，提供完整的 CRUD 操作
+- 支持 Session 名称收藏、Team 名称收藏、Session 标签、保存的筛选器
+- 前端组件从 API 加载数据，支持乐观更新
+
+**数据迁移**:
+- 首次启动时自动从 localStorage 迁移旧数据到文件存储
+- 迁移完成后自动清理 localStorage
+- 如果 API 不可用，自动降级到 localStorage 作为后备
+
+**API 端点**:
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /api/favorites/session-names | 获取所有 Session 收藏名称 |
+| POST | /api/favorites/session-names/:id | 设置 Session 收藏名称 |
+| DELETE | /api/favorites/session-names/:id | 删除 Session 收藏名称 |
+| GET | /api/favorites/team-names | 获取所有 Team 收藏名称 |
+| POST | /api/favorites/team-names/:id | 设置 Team 收藏名称 |
+| DELETE | /api/favorites/team-names/:id | 删除 Team 收藏名称 |
+| GET | /api/favorites/session-tags | 获取所有 Session 标签 |
+| POST | /api/favorites/session-tags/:id | 设置 Session 标签 |
+| GET | /api/favorites/saved-filters | 获取所有保存的筛选器 |
+| POST | /api/favorites/saved-filters | 创建新的筛选器 |
+| PUT | /api/favorites/saved-filters/:id | 更新筛选器 |
+| DELETE | /api/favorites/saved-filters/:id | 删除筛选器 |
+
 ### 新功能 (2026-02-17) - 可视化仪表盘与全局交互
 
 #### 1. 会话活跃度热力图
@@ -578,10 +620,11 @@ $env:PORT=13928  # 后端使用其他端口
 **功能描述**: 为 Session 添加标签，支持按标签筛选。
 
 **实现细节**:
-- 新增 `useSessionTags.ts` hook，使用 localStorage 持久化
+- 新增 `useSessionTags.ts` hook，使用 API 持久化到 `~/.claude/favorites/`
 - 新增 `TagSelector.tsx` 组件
 - 支持添加、删除多个标签
 - Session List 支持按标签筛选
+- 数据持久化，跨浏览器同步
 
 **使用**: 在 Session Detail 中点击添加标签，选择或输入标签名
 
@@ -600,9 +643,10 @@ $env:PORT=13928  # 后端使用其他端口
 
 **实现细节**:
 - 新增 `SmartFilterBar.tsx` 组件
-- 新增 `useSavedFilters.ts` hook
+- 新增 `useSavedFilters.ts` hook，使用 API 持久化到 `~/.claude/favorites/`
 - 支持保存当前筛选条件
 - 一键应用已保存的筛选
+- 数据持久化，跨浏览器同步
 
 #### 11. 增强搜索功能
 **功能描述**: 全文搜索 Session 内容，支持按类型筛选。
@@ -628,11 +672,12 @@ $env:PORT=13928  # 后端使用其他端口
 **功能描述**: 为 Session 设置自定义名称，方便识别和管理。
 
 **实现细节**:
-- 新增 `useSessionNames.ts` hook，使用 localStorage 持久化存储
+- 新增 `useSessionNames.ts` hook，使用 API 持久化到 `~/.claude/favorites/`
 - Session Detail 头部添加自定义名称输入框
 - 支持点击星标或 "收藏" 按钮设置名称
 - 已收藏的 Session 在列表中显示黄色星标和边框
 - 支持键盘快捷键：Enter 保存，Escape 取消
+- 数据持久化，跨浏览器同步
 
 **使用方法**:
 1. 在 Session Detail 中点击 "收藏" 按钮
@@ -683,12 +728,13 @@ $env:PORT=13928  # 后端使用其他端口
 **功能描述**: 为 Team 设置自定义名称，方便识别和管理。
 
 **实现细节**:
-- 新增 `useTeamNames.ts` hook，使用 localStorage 持久化存储
+- 新增 `useTeamNames.ts` hook，使用 API 持久化到 `~/.claude/favorites/`
 - Team List 中每个 Team 显示编辑按钮
 - 支持点击星标或编辑按钮设置自定义名称
 - 已收藏的 Team 在列表中显示黄色星标和边框
 - 收藏 Team 按最近活动时间排序，优先显示
 - 支持 "全部/已收藏" 筛选开关
+- 数据持久化，跨浏览器同步
 
 **使用方法**:
 1. 在 Teams 列表中点击编辑按钮
