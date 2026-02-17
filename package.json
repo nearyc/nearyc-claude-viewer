@@ -1,0 +1,34 @@
+{
+  "name": "claude-viewer",
+  "version": "1.0.0",
+  "description": "Claude Viewer - Sessions + Agent Teams Integration",
+  "private": true,
+  "scripts": {
+    "dev": "powershell -ExecutionPolicy Bypass -File ./start-app.ps1",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "build:backend": "cd backend && npm run build",
+    "start": "cd backend && npm start",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "clean": "cd backend && rmdir /s /q node_modules 2>nul || rm -rf node_modules && cd ../frontend && rmdir /s /q node_modules 2>nul || rm -rf node_modules && rmdir /s /q dist 2>nul || rm -rf dist"
+  },
+  "keywords": [
+    "claude",
+    "viewer",
+    "sessions",
+    "teams",
+    "agent",
+    "dashboard"
+  ],
+  "author": "",
+  "license": "MIT",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}

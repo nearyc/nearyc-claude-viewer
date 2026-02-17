@@ -1,0 +1,343 @@
+import React, { useState, useMemo } from 'react';
+import { Inbox, Bell, MessageCircle, Search, Filter, X } from 'lucide-react';
+import { MessageItem } from './MessageItem';
+import { getMemberColor } from '../utils/colors';
+import type { TeamWithInboxes, Message } from '../types';
+
+interface MessagePanelProps {
+  team: TeamWithInboxes | null;
+  selectedMember: string | null;
+  onViewSession?: (sessionId: string) => void;
+}
+
+const MESSAGE_TYPE_FILTERS = [
+  { value: 'all', label: 'All Types' },
+  { value: 'idle_notification', label: 'Status' },
+  { value: 'status_update', label: 'Updates' },
+  { value: 'task_assignment', label: 'Tasks' },
+  { value: 'shutdown_approved', label: 'System' },
+  { value: 'message', label: 'Messages' },
+] as const;
+
+const getActualMessageType = (message: Message): string => {
+  if (message.type && message.type !== 'message') return message.type;
+
+  try {
+    const parsed = JSON.parse(message.content);
+    if (parsed.type) return parsed.type;
+    if (parsed.idleReason) return 'idle_notification';
+    if (parsed.requestId?.includes('shutdown')) return 'shutdown_approved';
+  } catch {
+    // Not JSON
+  }
+
+  return message.type || 'message';
+};
+
+const filterMessages = (
+  messages: Message[],
+  searchQuery: string,
+  typeFilter: string
+): Message[] => {
+  return messages.filter((message) => {
+    if (typeFilter !== 'all' && getActualMessageType(message) !== typeFilter) {
+      return false;
+    }
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      const searchText = `${message.content} ${message.sender} ${message.recipient}`.toLowerCase();
+      return searchText.includes(query);
+    }
+
+    return true;
+  });
+};
+
+// Empty state component
+const EmptyState: React.FC<{
+  icon: React.ReactNode;
+  message: string;
+  action?: React.ReactNode;
+}> = ({ icon, message, action }) => (
+  <div
+    className="h-full flex flex-col items-center justify-center"
+    style={{ color: 'var(--text-muted)' }}
+  >
+    <div
+      className="w-16 h-16 rounded-full flex items-center justify-center mb-4 border"
+      style={{
+        backgroundColor: 'var(--bg-card)',
+        borderColor: 'var(--border-primary)',
+      }}
+    >
+      {icon}
+    </div>
+    <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{message}</p>
+    {action}
+  </div>
+);
+
+export const MessagePanel: React.FC<MessagePanelProps> = ({
+  team,
+  selectedMember,
+}) => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [showFilters, setShowFilters] = useState(false);
+
+  const selectedInbox = team?.inboxes?.find((inbox) => inbox.memberName === selectedMember);
+
+  const filteredMessages = useMemo(() => {
+    if (!selectedInbox?.messages) return [];
+    return filterMessages(selectedInbox.messages, searchQuery, typeFilter);
+  }, [selectedInbox, searchQuery, typeFilter]);
+
+  const totalUnread = team?.inboxes?.reduce(
+    (sum, inbox) => sum + (inbox.messages?.length || 0),
+    0
+  ) || 0;
+
+  const hasActiveFilters = searchQuery.trim() !== '' || typeFilter !== 'all';
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setTypeFilter('all');
+  };
+
+  const renderContent = () => {
+    if (!team) {
+      return (
+        <EmptyState
+          icon={<Inbox className="w-7 h-7 opacity-40" />}
+          message="Select a team to view messages"
+        />
+      );
+    }
+
+    if (!selectedMember) {
+      return (
+        <EmptyState
+          icon={<Inbox className="w-7 h-7 opacity-40" />}
+          message="Select a member to view messages"
+        />
+      );
+    }
+
+    if (!selectedInbox || selectedInbox.messages.length === 0) {
+      return (
+        <EmptyState
+          icon={<Bell className="w-7 h-7 opacity-40" />}
+          message="No messages for this member"
+        />
+      );
+    }
+
+    if (filteredMessages.length === 0) {
+      return (
+        <EmptyState
+          icon={<Search className="w-7 h-7 opacity-40" />}
+          message="No messages match your filters"
+          action={
+            <button
+              onClick={clearFilters}
+              className="mt-2 text-xs"
+              style={{ color: 'var(--accent-blue)' }}
+            >
+              Clear filters
+            </button>
+          }
+        />
+      );
+    }
+
+    const memberColor = getMemberColor(selectedInbox.memberName);
+
+    return (
+      <div className="p-3 space-y-3">
+        <div
+          className="flex items-center justify-between pb-3 border-b"
+          style={{ borderColor: 'var(--border-primary)' }}
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className="w-10 h-10 rounded-full flex items-center justify-center border"
+              style={{
+                backgroundColor: `${memberColor}30`,
+                borderColor: 'var(--border-primary)',
+              }}
+            >
+              <span
+                className="text-sm font-semibold"
+                style={{ color: memberColor }}
+              >
+                {selectedInbox.memberName.slice(0, 2).toUpperCase()}
+              </span>
+            </div>
+            <div>
+              <h3 className="font-semibold text-base" style={{ color: 'var(--text-secondary)' }}>
+                {selectedInbox.memberName}
+              </h3>
+              <p className="text-sm flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
+                <span>{filteredMessages.length} messages</span>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          {filteredMessages.map((message) => (
+            <MessageItem
+              key={message.id}
+              message={message}
+              searchQuery={searchQuery}
+              memberColor={memberColor}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div
+      className="flex flex-col h-full"
+      style={{ backgroundColor: 'var(--bg-primary)' }}
+    >
+      {/* Header */}
+      <div
+        className="px-4 py-3 border-b"
+        style={{
+          borderColor: 'var(--border-primary)',
+          backgroundColor: 'rgba(30, 41, 59, 0.5)',
+        }}
+      >
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+            <MessageCircle className="w-5 h-5" style={{ color: 'var(--text-muted)' }} />
+            <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>Messages</span>
+            {totalUnread > 0 && (
+              <span
+                className="px-2 py-0.5 text-xs font-medium rounded-full border"
+                style={{
+                  backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                  color: 'var(--accent-blue)',
+                  borderColor: 'rgba(59, 130, 246, 0.2)',
+                }}
+              >
+                {totalUnread}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Search bar + filter button */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all shrink-0 border"
+            style={{
+              backgroundColor: showFilters || typeFilter !== 'all' ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+              color: showFilters || typeFilter !== 'all' ? 'var(--accent-blue)' : 'var(--text-muted)',
+              borderColor: showFilters || typeFilter !== 'all' ? 'rgba(59, 130, 246, 0.2)' : 'var(--border-primary)',
+            }}
+          >
+            <Filter className="w-3.5 h-3.5" />
+            <span>Filter</span>
+            {typeFilter !== 'all' && (
+              <span
+                className="ml-0.5 px-1.5 py-0.5 rounded-full text-[10px]"
+                style={{ backgroundColor: 'rgba(59, 130, 246, 0.2)' }}
+              >
+                1
+              </span>
+            )}
+          </button>
+
+          <div
+            className="flex items-center justify-center w-8 h-8 rounded-lg border shrink-0"
+            style={{
+              backgroundColor: 'var(--bg-secondary)',
+              borderColor: 'var(--border-primary)',
+            }}
+          >
+            <Search className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
+          </div>
+
+          <div className="relative flex-1">
+            <input
+              type="text"
+              placeholder="Search messages..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full px-3 pr-8 py-2 rounded-lg text-sm transition-colors focus:outline-none border"
+              style={{
+                backgroundColor: 'var(--bg-secondary)',
+                borderColor: 'var(--border-primary)',
+                color: 'var(--text-primary)',
+              }}
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              className="flex items-center gap-1 px-2.5 py-2 rounded-lg text-xs transition-colors border shrink-0"
+              style={{
+                color: 'var(--text-muted)',
+                borderColor: 'var(--border-primary)',
+              }}
+              title="Clear filters"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        {hasActiveFilters && selectedInbox && (
+          <div className="mt-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+            Showing {filteredMessages.length} of {selectedInbox.messages.length} messages
+          </div>
+        )}
+
+        {showFilters && (
+          <div
+            className="flex flex-wrap gap-1.5 mt-2 pt-2 border-t"
+            style={{ borderColor: 'var(--border-primary)' }}
+          >
+            {MESSAGE_TYPE_FILTERS.map((filter) => (
+              <button
+                key={filter.value}
+                onClick={() => setTypeFilter(filter.value)}
+                className="px-2.5 py-1 rounded-md text-[10px] font-medium transition-all border"
+                style={{
+                  backgroundColor: typeFilter === filter.value ? 'rgba(59, 130, 246, 0.15)' : 'transparent',
+                  color: typeFilter === filter.value ? 'var(--accent-blue)' : 'var(--text-muted)',
+                  borderColor: typeFilter === filter.value ? 'rgba(59, 130, 246, 0.3)' : 'transparent',
+                }}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Messages Content */}
+      <div className="flex-1 overflow-y-auto">
+        {renderContent()}
+      </div>
+    </div>
+  );
+};
+
+export default MessagePanel;
