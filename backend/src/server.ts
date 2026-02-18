@@ -73,7 +73,7 @@ function socketAuth(socket: Socket, next: (err?: Error) => void): void {
 // Rate limiter configuration
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
+  max: 1000, // Limit each IP to 1000 requests per windowMs (increased for dev)
   message: {
     success: false,
     error: 'Too many requests from this IP, please try again later.',
@@ -86,7 +86,8 @@ const limiter = rateLimit({
 function getCorsOrigins(): string[] {
   const corsOrigin = process.env.CORS_ORIGIN;
   if (!corsOrigin) {
-    return ['http://localhost:5173'];
+    // Allow both common Vite dev server ports
+    return ['http://localhost:5173', 'http://localhost:5174'];
   }
   // Support comma-separated list of origins
   return corsOrigin.split(',').map(origin => origin.trim());

@@ -2,7 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { createReadStream } from 'fs';
 import readline from 'readline';
-import type { Session, Project, ConversationMessage } from '../../types';
+import type { Session, Project, ConversationMessage, SessionInput, ContentBlock } from '../../types';
 import { normalizePath, projectSlugToPath } from './PathUtils';
 
 export interface ProjectScannerDependencies {
@@ -14,6 +14,7 @@ export interface SessionInfo {
   inputCount: number;
   messageCount: number;
   projectPath?: string;
+  inputs: SessionInput[];
 }
 
 /**
@@ -76,7 +77,7 @@ export class ProjectScanner {
               sessionId: sessionId,
               project: normalizedProjectPath,
               projectSlug: projectSlug,
-              inputs: [],
+              inputs: sessionInfo.inputs,
               messages: [],
               createdAt: sessionInfo.timestamp,
               updatedAt: sessionInfo.timestamp,
@@ -129,6 +130,7 @@ export class ProjectScanner {
       let inputCount = 0;
       let messageCount = 0;
       let projectPath: string | undefined;
+      const inputs: SessionInput[] = [];
 
       for await (const line of rl) {
         if (!line.trim()) continue;
@@ -154,6 +156,32 @@ export class ProjectScanner {
           if (entry.type === 'user') {
             inputCount++;
             messageCount++;
+
+            // Extract user input text from message content
+            let displayText = '';
+            if (entry.message?.content) {
+              if (typeof entry.message.content === 'string') {
+                displayText = entry.message.content;
+              } else if (Array.isArray(entry.message.content)) {
+                // Handle array of content blocks
+                const textParts: string[] = [];
+                for (const block of entry.message.content) {
+                  const contentBlock = block as ContentBlock;
+                  if (contentBlock.type === 'text' && contentBlock.text) {
+                    textParts.push(contentBlock.text);
+                  }
+                }
+                displayText = textParts.join(' ');
+              }
+            }
+
+            // Only add non-empty inputs
+            if (displayText.trim()) {
+              inputs.push({
+                display: displayText,
+                timestamp: entry.timestamp ? new Date(entry.timestamp).getTime() : Date.now(),
+              });
+            }
           } else if (entry.type === 'assistant' && entry.message) {
             messageCount++;
           }
@@ -168,6 +196,7 @@ export class ProjectScanner {
           inputCount,
           messageCount,
           projectPath,
+          inputs,
         };
       }
 

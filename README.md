@@ -930,6 +930,47 @@ $env:PORT=13928  # 后端使用其他端口
 - `fileWatcher.ts`: 添加 `addDir` 事件处理，检测新创建的目录
 - 前端刷新按钮: 添加 `?refresh=true` 参数支持，强制后端重新读取文件
 
+#### 13. 收藏和标签功能失效
+**问题**: 添加收藏或标签后，数据无法保存，功能失效。
+
+**原因**: 前端 API 请求使用了硬编码的 `http://localhost:3001`，而后端实际运行在 `13927` 端口，导致请求失败。
+
+**修复**:
+- `useSessionTags.ts`, `useSavedFilters.ts`, `useWebSocket.ts`: 将 `API_BASE_URL` 改为相对路径 `''`，通过 Vite 代理转发请求
+- `SessionNamesContext.tsx`, `TeamNamesContext.tsx`: 同样修复 API 路径
+
+#### 14. CORS 错误导致收藏保存失败
+**问题**: 保存收藏名称时，后端返回 500 错误，提示 "CORS policy does not allow access"。
+
+**原因**: 后端 CORS 配置默认只允许 `http://localhost:5173`，但前端实际运行在 `5174` 端口。
+
+**修复**:
+- `backend/src/server.ts`: 在 `getCorsOrigins()` 函数中添加 `http://localhost:5174` 到允许列表
+
+#### 15. Rate Limit 限制导致 429 错误
+**问题**: 页面加载时频繁出现 "429 Too Many Requests" 错误，导致 API 请求失败。
+
+**原因**: 后端 rate limit 限制为 100 请求/15分钟，前端初始化时需要加载多个资源，容易触发限制。
+
+**修复**:
+- `backend/src/server.ts`: 将 `max` 从 100 增加到 1000 请求/15分钟（开发环境）
+
+#### 16. 无限渲染循环警告
+**问题**: 控制台出现 "Maximum update depth exceeded" 警告，页面性能下降。
+
+**原因**: `useCommandPalette.ts` 中的 `useEffect` 在 `filteredCommands` 变化时更新 state，导致循环依赖。
+
+**修复**:
+- `useCommandPalette.ts`: 移除不必要的 `useEffect`，改为在渲染时直接计算 `filteredCommands`
+
+#### 17. HTML 嵌套错误
+**问题**: 控制台出现 "button cannot be a descendant of button" 警告。
+
+**原因**: `SessionList.tsx` 中按钮嵌套按钮，违反 HTML 规范。
+
+**修复**:
+- `SessionList.tsx`: 将外层按钮改为 `div`，内层使用 `span` 包裹操作按钮
+
 ## 技术栈
 
 - **前端**: React 19 + TypeScript + Vite + Tailwind CSS + Socket.io Client

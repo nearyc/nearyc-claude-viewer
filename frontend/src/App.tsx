@@ -50,10 +50,10 @@ function App() {
   const { teams: fetchedTeams, refetch: refetchTeams, loading: teamsLoading } = useTeams();
   const { session: selectedSession, setSession: setSelectedSession } = useSession(
     selectedSessionId,
-    1000,
+    0, // Disable polling - WebSocket handles real-time updates
     true
   );
-  const { team: fetchedTeamData } = useTeam(selectedTeamId, 1000);
+  const { team: fetchedTeamData } = useTeam(selectedTeamId, 0); // Disable polling
 
   // Update local state when data is fetched - 合并为一个 useEffect
   useEffect(() => {
@@ -66,7 +66,8 @@ function App() {
 
   // WebSocket callbacks
   const handleSessionsInit = useCallback((newSessions: Session[]) => {
-    setSessions(newSessions);
+    // Only use WebSocket init data if HTTP data hasn't loaded yet
+    setSessions((prev) => (prev.length === 0 ? newSessions : prev));
   }, []);
 
   const handleSessionsUpdated = useCallback((newSessions: Session[]) => {
@@ -75,16 +76,24 @@ function App() {
 
   const handleSessionData = useCallback(
     (updatedSession: Session) => {
-      // Update selected session if it matches
-      if (updatedSession.sessionId === selectedSessionId) {
-        setSelectedSession(updatedSession);
-      }
-      // Also update the session in the sessions list
+      // Merge with existing session data to preserve full conversation
+      setSelectedSession((prev) => {
+        if (!prev || prev.sessionId !== updatedSession.sessionId) return prev;
+        // Preserve messages if update doesn't have them (WebSocket often sends metadata only)
+        const mergedMessages =
+          updatedSession.messages && updatedSession.messages.length > 0
+            ? updatedSession.messages
+            : prev.messages;
+        return { ...prev, ...updatedSession, messages: mergedMessages };
+      });
+      // Update sessions list (metadata only, preserve existing messages)
       setSessions((prev) =>
-        prev.map((s) => (s.sessionId === updatedSession.sessionId ? { ...s, ...updatedSession } : s))
+        prev.map((s) =>
+          s.sessionId === updatedSession.sessionId ? { ...s, ...updatedSession, messages: s.messages } : s
+        )
       );
     },
-    [selectedSessionId, setSelectedSession]
+    [setSelectedSession]
   );
 
   const handleSessionUpdated = useCallback((updatedSession: Session) => {
@@ -94,7 +103,8 @@ function App() {
   }, []);
 
   const handleProjectsInit = useCallback((newProjects: any[]) => {
-    setProjects(newProjects);
+    // Only use WebSocket init data if HTTP data hasn't loaded yet
+    setProjects((prev) => (prev.length === 0 ? newProjects : prev));
   }, []);
 
   const handleProjectsUpdated = useCallback((newProjects: any[]) => {

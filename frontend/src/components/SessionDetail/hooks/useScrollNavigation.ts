@@ -16,9 +16,23 @@ export function useScrollNavigation(messages: ChatMessage[]) {
     setIsAtBottom(isBottom);
   }, []);
 
+  // Initial scroll to bottom when messages first load
+  useEffect(() => {
+    if (messages.length > 0 && messageCount === 0) {
+      setMessageCount(messages.length);
+      // Small delay to ensure DOM has rendered
+      setTimeout(() => {
+        if (scrollContainerRef.current) {
+          scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+          setIsAtBottom(true);
+        }
+      }, 100);
+    }
+  }, [messages.length, messageCount]);
+
   // Auto-scroll to bottom when new messages arrive (if user is already at bottom)
   useEffect(() => {
-    if (messages.length > 0 && messages.length !== messageCount) {
+    if (messages.length > 0 && messages.length !== messageCount && messageCount > 0) {
       const newMessageCount = messages.length;
       setMessageCount(newMessageCount);
 

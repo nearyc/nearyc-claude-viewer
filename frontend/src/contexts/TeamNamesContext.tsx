@@ -17,7 +17,7 @@ interface TeamNamesContextType {
 // Legacy localStorage key for migration
 const LEGACY_STORAGE_KEY = 'claude-viewer-team-names';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_BASE_URL = ''; // Use relative URL to leverage Vite proxy
 
 const TeamNamesContext = createContext<TeamNamesContextType | null>(null);
 

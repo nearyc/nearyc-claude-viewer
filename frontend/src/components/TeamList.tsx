@@ -225,10 +225,10 @@ export const TeamList: React.FC<TeamListProps> = ({
               const displayName = customName || team.name;
 
               return (
-                <button
+                <div
                   key={team.id}
                   onClick={() => onSelect(team)}
-                  className="w-full px-3 py-3 text-left rounded-lg transition-all duration-150 border group"
+                  className="w-full px-3 py-3 text-left rounded-lg transition-all duration-150 border group cursor-pointer"
                   style={{
                     backgroundColor: isSelected
                       ? 'rgba(59, 130, 246, 0.1)'
@@ -389,7 +389,7 @@ export const TeamList: React.FC<TeamListProps> = ({
                       </div>
                     </div>
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>

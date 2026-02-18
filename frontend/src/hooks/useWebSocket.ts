@@ -11,8 +11,8 @@ import type {
   ClientToServerEvents,
 } from '../types';
 
-// Environment configuration with fallback
-const WS_URL = (import.meta as any).env?.VITE_WS_URL || 'http://localhost:13927';
+// Use relative URL to leverage Vite proxy
+const WS_URL = '';
 
 interface WebSocketState {
   connected: boolean;
