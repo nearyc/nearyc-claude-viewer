@@ -1114,3 +1114,71 @@ interface ISessionCache {
 - 每个模块独立测试
 - Mock 外部依赖
 - 边界条件全覆盖
+
+---
+
+## 系统消息过滤机制
+
+### 问题背景
+
+Claude Code 在对话过程中会产生一些系统级别的消息（如 `<ide_opened_file>`、`<system-reminder>`、`<tool>` 等），这些消息：
+1. 不应该显示在 Session 标题中
+2. 不应该出现在对话内容中
+3. 不应该影响导出结果
+
+### 解决方案
+
+**前端类型定义** (`types/index.ts`):
+```typescript
+/** Patterns for system messages that should be filtered out */
+export const SYSTEM_MESSAGE_PATTERNS = [
+  /<ide_opened_file>/i,
+  /<system-reminder>/i,
+  /<tool>/i,
+  /<\/tool>/i,
+];
+
+/** Check if content contains system message patterns */
+export const isSystemContent = (content: string): boolean => {
+  return SYSTEM_MESSAGE_PATTERNS.some(pattern => pattern.test(content));
+};
+
+/** Get the first non-system input from a session */
+export const getFirstValidInput = (inputs: SessionInput[]): SessionInput | null => {
+  return inputs.find(input => !isSystemContent(input.display)) || null;
+};
+```
+
+**使用场景**:
+1. **Session 列表标题**: `SessionList.tsx` 的 `getSessionTitle()` 函数过滤系统消息
+2. **Dashboard 活动列表**: `Dashboard.tsx` 的 `SessionListItem` 组件过滤标题
+3. **活动时间线**: `ActivityTimeline.tsx` 过滤 Session 标题
+4. **对话视图**: `ConversationView.tsx` 过滤消息内容中的系统消息
+5. **导出功能**: `exportUtils.ts` 过滤导出标题和文件名
+
+### 数据流
+
+```
+Claude Code 生成系统消息
+    ↓
+后端存储原始数据（包含系统消息）
+    ↓
+前端获取数据
+    ↓
+isSystemContent() 过滤
+    ↓
+UI 显示干净的标题和内容
+```
+
+### 扩展性
+
+如需添加新的系统消息模式，只需在 `SYSTEM_MESSAGE_PATTERNS` 数组中添加正则表达式：
+```typescript
+export const SYSTEM_MESSAGE_PATTERNS = [
+  /<ide_opened_file>/i,
+  /<system-reminder>/i,
+  /<tool>/i,
+  /<\/tool>/i,
+  /<new_pattern>/i,  // 添加新模式
+];
+```

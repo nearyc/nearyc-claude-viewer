@@ -1008,6 +1008,26 @@ $env:PORT=13928  # 后端使用其他端口
 - `MessageItem.tsx`: 移除 `isLatest ? 'animate-pulse' : ''` 样式
 - 保留 20 秒内新消息的绿色描边提示（`isJustNow`）
 
+#### 22. Sessions 不实时更新
+**问题**: Session 对话内容更新后，claude-viewer 未实时显示新消息。
+
+**原因**: `SessionCache.isValid()` 缓存判断逻辑缺陷，当 conversation 文件变化时缓存未正确失效。
+
+**修复**:
+- `SessionCache.ts`: 修复 `isValid()` 方法，缓存为空时强制重新加载
+- 确保 WebSocket 消息更新能正确触发缓存刷新
+
+#### 23. Session 名称显示系统消息
+**问题**: Session 列表和详情中显示 `<ide_opened_file>`、`<system-reminder>` 等系统消息作为标题。
+
+**原因**: `getSessionTitle()` 函数直接使用 `inputs[0].display`，未过滤系统消息。
+
+**修复**:
+- `types/index.ts`: 添加 `SYSTEM_MESSAGE_PATTERNS` 和 `isSystemContent()` 工具函数
+- `SessionList.tsx`, `Dashboard.tsx`, `ActivityTimeline.tsx`: 使用过滤后的第一个有效输入作为标题
+- `ConversationView.tsx`: 过滤消息内容中的系统消息
+- `exportUtils.ts`: 导出时过滤系统消息
+
 ## 技术栈
 
 - **前端**: React 19 + TypeScript + Vite + Tailwind CSS + Socket.io Client
