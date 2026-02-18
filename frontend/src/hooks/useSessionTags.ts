@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 const LEGACY_STORAGE_KEY = 'claude-viewer-session-tags';
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_BASE_URL = ''; // Use relative URL to leverage Vite proxy
 
 export interface SessionTags {
   [sessionId: string]: string[];

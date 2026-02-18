@@ -59,14 +59,25 @@ claude-viewer/
 │   │   │   ├── search.ts   # 搜索 API
 │   │   │   └── favorites.ts # 收藏 API（Session/Team 名称、标签、筛选器）
 │   │   ├── services/       # 业务逻辑服务
-│   │   │   ├── sessionsService.ts  # Sessions 数据服务
-│   │   │   ├── teamsService.ts     # Teams 数据服务（含消息格式转换）
+│   │   │   ├── sessions/           # Sessions 模块化服务
+│   │   │   │   ├── PathUtils.ts        # 路径处理工具
+│   │   │   │   ├── SessionCache.ts     # 缓存管理
+│   │   │   │   ├── SessionLoader.ts    # 会话加载器
+│   │   │   │   ├── ProjectScanner.ts   # 项目扫描器
+│   │   │   │   ├── ConversationLoader.ts # 对话加载器
+│   │   │   │   └── SessionRepository.ts  # 会话存储库
+│   │   │   ├── sessionsService.ts  # Sessions 主服务（组合模式）
+│   │   │   ├── teamsService.ts     # Teams 数据服务
 │   │   │   ├── projectsService.ts  # Projects 数据服务
-│   │   │   ├── statsService.ts     # 统计服务（活动、趋势）
+│   │   │   ├── statsService.ts     # 统计服务
 │   │   │   ├── searchService.ts    # 全文搜索服务
 │   │   │   ├── codeStatsService.ts # 代码产出统计服务
 │   │   │   ├── activityService.ts  # 实时活动流服务
 │   │   │   └── favoritesService.ts # 收藏数据持久化服务
+│   │   ├── utils/          # 工具函数
+│   │   │   ├── apiResponse.ts    # 统一 API 响应格式
+│   │   │   ├── pathUtils.ts      # 路径处理
+│   │   │   └── dateUtils.ts      # 日期处理
 │   │   └── types/          # 类型定义
 │   └── package.json
 ├── frontend/               # 前端应用
@@ -79,7 +90,21 @@ claude-viewer/
 │   │   │   ├── Layout.tsx        # 可调整布局
 │   │   │   ├── Dashboard.tsx     # 仪表盘（含热力图、趋势图、时间线）
 │   │   │   ├── SessionList.tsx   # Session 列表（含批量操作、智能筛选）
-│   │   │   ├── SessionDetail.tsx # Session 详情（含导出、标签）
+│   │   │   ├── SessionDetail/    # Session 详情组件目录
+│   │   │   │   ├── components/       # 子组件
+│   │   │   │   │   ├── SessionHeader.tsx   # 会话头部
+│   │   │   │   │   ├── SessionMeta.tsx     # 元数据展示
+│   │   │   │   │   ├── SessionActions.tsx  # 操作按钮
+│   │   │   │   │   ├── NavigationBar.tsx   # 导航栏
+│   │   │   │   │   ├── SearchBar.tsx       # 搜索栏
+│   │   │   │   │   ├── BookmarksList.tsx   # 书签列表
+│   │   │   │   │   ├── ConversationView.tsx # 对话视图
+│   │   │   │   │   └── RawInputsView.tsx   # 原始输入视图
+│   │   │   │   ├── hooks/            # 自定义 Hooks
+│   │   │   │   │   ├── useBookmarks.ts     # 书签状态管理
+│   │   │   │   │   ├── useSearch.ts        # 搜索功能
+│   │   │   │   │   └── useScrollNavigation.ts # 滚动导航
+│   │   │   │   └── SessionDetail.tsx # 主组件（精简版）
 │   │   │   ├── TeamList.tsx      # Team 列表
 │   │   │   ├── MemberList.tsx    # 成员列表
 │   │   │   ├── MessagePanel.tsx  # 消息面板
@@ -152,6 +177,22 @@ npm run build
 # 构建后端
 npm run build:backend
 ```
+
+### 运行测试
+
+```bash
+# 后端测试 (Jest)
+cd backend
+npm test
+npm run test:coverage  # 覆盖率报告
+
+# 前端测试 (Vitest)
+cd frontend
+npm test
+npm run test:coverage  # 覆盖率报告
+```
+
+**测试覆盖率目标**: 80%+
 
 ## 配置
 
@@ -888,6 +929,84 @@ $env:PORT=13928  # 后端使用其他端口
 - `sessionsService.ts`: 修复缓存时间戳比较逻辑，使用 `Math.floor()` 处理文件系统精度差异
 - `fileWatcher.ts`: 添加 `addDir` 事件处理，检测新创建的目录
 - 前端刷新按钮: 添加 `?refresh=true` 参数支持，强制后端重新读取文件
+
+#### 13. 收藏和标签功能失效
+**问题**: 添加收藏或标签后，数据无法保存，功能失效。
+
+**原因**: 前端 API 请求使用了硬编码的 `http://localhost:3001`，而后端实际运行在 `13927` 端口，导致请求失败。
+
+**修复**:
+- `useSessionTags.ts`, `useSavedFilters.ts`, `useWebSocket.ts`: 将 `API_BASE_URL` 改为相对路径 `''`，通过 Vite 代理转发请求
+- `SessionNamesContext.tsx`, `TeamNamesContext.tsx`: 同样修复 API 路径
+
+#### 14. CORS 错误导致收藏保存失败
+**问题**: 保存收藏名称时，后端返回 500 错误，提示 "CORS policy does not allow access"。
+
+**原因**: 后端 CORS 配置默认只允许 `http://localhost:5173`，但前端实际运行在 `5174` 端口。
+
+**修复**:
+- `backend/src/server.ts`: 在 `getCorsOrigins()` 函数中添加 `http://localhost:5174` 到允许列表
+
+#### 15. Rate Limit 限制导致 429 错误
+**问题**: 页面加载时频繁出现 "429 Too Many Requests" 错误，导致 API 请求失败。
+
+**原因**: 后端 rate limit 限制为 100 请求/15分钟，前端初始化时需要加载多个资源，容易触发限制。
+
+**修复**:
+- `backend/src/server.ts`: 将 `max` 从 100 增加到 1000 请求/15分钟（开发环境）
+
+#### 16. 无限渲染循环警告
+**问题**: 控制台出现 "Maximum update depth exceeded" 警告，页面性能下降。
+
+**原因**: `useCommandPalette.ts` 中的 `useEffect` 在 `filteredCommands` 变化时更新 state，导致循环依赖。
+
+**修复**:
+- `useCommandPalette.ts`: 移除不必要的 `useEffect`，改为在渲染时直接计算 `filteredCommands`
+
+#### 17. HTML 嵌套错误
+**问题**: 控制台出现 "button cannot be a descendant of button" 警告。
+
+**原因**: `SessionList.tsx` 中按钮嵌套按钮，违反 HTML 规范。
+
+**修复**:
+- `SessionList.tsx`: 将外层按钮改为 `div`，内层使用 `span` 包裹操作按钮
+
+#### 18. Teams 消息不实时显示
+**问题**: 当 claude-viewer 打开时，Claude Code 会话发送消息给团队成员收不到实时更新。
+
+**原因**: `App.tsx` 中未传入 `onMessagesUpdated` 回调，导致 WebSocket 消息更新无法反映到 UI。
+
+**修复**:
+- `App.tsx`: 添加 `handleMessagesUpdated` 回调处理 `team:messages` 事件
+- `useWebSocket.ts`: 确保消息事件正确触发回调
+- `backend/src/server.ts`: 修复文件名与成员名映射问题
+
+#### 19. Teams 成员状态显示异常
+**问题**: team-lead 有大量 "available" 状态消息，其他成员几乎没有状态显示。
+
+**原因**: `MemberList.tsx` 没有从 inbox 消息中解析当前状态，且存在文件名与成员名不匹配问题。
+
+**修复**:
+- `MemberList.tsx`: 添加 `getMemberStatusFromMessages()` 方法解析消息状态
+- 新增 `getStatusLabel()` 和 `getStatusBadgeStyle()` 显示友好状态标签
+- `TeamsService.ts`: 添加 `findInboxFile()` 方法处理文件名模糊匹配
+- 支持多种状态类型：available, busy, working, idle, offline, error
+
+#### 20. Teams 消息面板布局问题
+**问题**: 消息面板下方有较大空地，消息区域未填满可用空间。
+
+**原因**: `MessagePanel.tsx` 中使用了固定的 `maxHeight: 'calc(100vh - 400px)'`。
+
+**修复**:
+- `MessagePanel.tsx`: 使用 `flex-1` 让消息区域自适应填充剩余空间
+- 将外层容器改为 `flex flex-col h-full` 布局
+
+#### 21. 最新消息闪烁问题
+**问题**: 最新消息有闪烁动画（`animate-pulse`），影响阅读体验。
+
+**修复**:
+- `MessageItem.tsx`: 移除 `isLatest ? 'animate-pulse' : ''` 样式
+- 保留 20 秒内新消息的绿色描边提示（`isJustNow`）
 
 ## 技术栈
 

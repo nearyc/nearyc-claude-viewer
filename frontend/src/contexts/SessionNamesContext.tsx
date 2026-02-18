@@ -17,7 +17,7 @@ interface SessionNamesContextType {
 // Legacy localStorage key for migration
 const LEGACY_STORAGE_KEY = 'claude-viewer-session-names';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_BASE_URL = ''; // Use relative URL to leverage Vite proxy
 
 const SessionNamesContext = createContext<SessionNamesContextType | null>(null);
 

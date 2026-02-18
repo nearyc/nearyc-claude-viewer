@@ -147,23 +147,17 @@ export function useCommandPalette(options: UseCommandPaletteOptions) {
     );
   }, [allCommands, state.searchQuery]);
 
-  // Update commands in state when filtered commands change
-  useEffect(() => {
-    setState((prev) => ({
-      ...prev,
-      commands: filteredCommands,
-      selectedIndex: Math.min(prev.selectedIndex, filteredCommands.length - 1),
-    }));
-  }, [filteredCommands]);
+  // Use filteredCommands directly instead of syncing to state to avoid infinite loop
+  // The commands are computed from allCommands and searchQuery, no need to store in state
 
   const open = useCallback(() => {
     setState({
       isOpen: true,
       searchQuery: '',
       selectedIndex: 0,
-      commands: allCommands,
+      commands: [],
     });
-  }, [allCommands]);
+  }, []);
 
   const close = useCallback(() => {
     setState((prev) => ({ ...prev, isOpen: false }));
@@ -178,10 +172,10 @@ export function useCommandPalette(options: UseCommandPaletteOptions) {
         isOpen: true,
         searchQuery: '',
         selectedIndex: 0,
-        commands: allCommands,
+        commands: [],
       };
     });
-  }, [allCommands]);
+  }, []);
 
   const setSearchQuery = useCallback((query: string) => {
     setState((prev) => ({ ...prev, searchQuery: query, selectedIndex: 0 }));
@@ -190,21 +184,21 @@ export function useCommandPalette(options: UseCommandPaletteOptions) {
   const selectNext = useCallback(() => {
     setState((prev) => ({
       ...prev,
-      selectedIndex: (prev.selectedIndex + 1) % prev.commands.length,
+      selectedIndex: (prev.selectedIndex + 1) % filteredCommands.length,
     }));
-  }, []);
+  }, [filteredCommands]);
 
   const selectPrevious = useCallback(() => {
     setState((prev) => ({
       ...prev,
       selectedIndex:
-        prev.selectedIndex <= 0 ? prev.commands.length - 1 : prev.selectedIndex - 1,
+        prev.selectedIndex <= 0 ? filteredCommands.length - 1 : prev.selectedIndex - 1,
     }));
-  }, []);
+  }, [filteredCommands]);
 
   const executeCommand = useCallback(
     (command?: Command) => {
-      const cmd = command || state.commands[state.selectedIndex];
+      const cmd = command || filteredCommands[state.selectedIndex];
       if (!cmd) return;
 
       switch (cmd.type) {
@@ -238,7 +232,7 @@ export function useCommandPalette(options: UseCommandPaletteOptions) {
       close();
     },
     [
-      state.commands,
+      filteredCommands,
       state.selectedIndex,
       onNavigateToDashboard,
       onNavigateToSessions,
@@ -299,7 +293,7 @@ export function useCommandPalette(options: UseCommandPaletteOptions) {
     isOpen: state.isOpen,
     searchQuery: state.searchQuery,
     selectedIndex: state.selectedIndex,
-    commands: state.commands,
+    commands: filteredCommands,
     open,
     close,
     toggle,

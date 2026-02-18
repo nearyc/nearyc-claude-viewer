@@ -218,7 +218,7 @@ export interface ServerToClientEvents {
   'teams:initial': (data: { teams: Team[] }) => void;
   'teams:updated': (data: { teams: Team[] }) => void;
   'team:data': (data: TeamWithInboxes) => void;
-  'team:messages': (data: { teamId: string; messages: Message[] }) => void;
+  'team:messages': (data: { teamId: string; memberId: string; messages: Message[] }) => void;
   'projects:initial': (data: { projects: Project[] }) => void;
   'projects:updated': (data: { projects: Project[] }) => void;
   'stats:updated': (data: DashboardStats) => void;

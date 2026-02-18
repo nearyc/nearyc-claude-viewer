@@ -4,13 +4,15 @@ import type { Team, TeamWithInboxes, Message, ApiResponse } from '../types';
 
 const API_BASE = '/api';
 
-export function useTeams() {
+export function useTeams(pollInterval: number = 5000) {
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchTeams = useCallback(async (forceRefresh = false) => {
-    setLoading(true);
+  const fetchTeams = useCallback(async (forceRefresh = false, silent = false) => {
+    if (!silent) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const response = await axios.get<ApiResponse<Team[]>>(`${API_BASE}/teams`, {
@@ -27,13 +29,26 @@ export function useTeams() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch teams');
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
     fetchTeams(false);
   }, [fetchTeams]);
+
+  // Polling for team list updates (detect team/member CRUD changes)
+  useEffect(() => {
+    if (pollInterval <= 0) return;
+
+    const intervalId = setInterval(() => {
+      fetchTeams(true, true); // force refresh, silent mode
+    }, pollInterval);
+
+    return () => clearInterval(intervalId);
+  }, [pollInterval, fetchTeams]);
 
   return { teams, loading, error, refetch: () => fetchTeams(true), setTeams };
 }

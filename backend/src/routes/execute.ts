@@ -1,62 +1,137 @@
 import { Router, type Response, type Request } from 'express';
 import { spawn } from 'child_process';
-import type { ApiResponse } from '../types';
+import path from 'path';
+import fs from 'fs';
+import { sendSuccess, sendError } from '../utils/apiResponse';
+import { isPathAllowed, isValidSessionId } from '../utils/pathUtils';
 
 interface ExecuteRequest {
-  command: string;
+  action: 'open-powershell' | 'open-cmd';
+  projectPath: string;
+  sessionId: string;
 }
 
-function sendSuccess<T>(res: Response, data: T): void {
-  const response: ApiResponse<T> = {
-    success: true,
-    data,
-  };
-  res.json(response);
+/**
+ * Escape single quotes for PowerShell
+ * PowerShell uses '' (two single quotes) to escape a single quote
+ */
+function escapePowerShellString(str: string): string {
+  return str.replace(/'/g, "''");
 }
 
-function sendError(res: Response, status: number, message: string): void {
-  const response: ApiResponse<null> = {
-    success: false,
-    error: message,
-  };
-  res.status(status).json(response);
+/**
+ * Get allowed root directories from environment or use defaults
+ */
+function getAllowedRoots(): string[] {
+  const envRoots = process.env.ALLOWED_PROJECT_ROOTS;
+  if (envRoots) {
+    return envRoots.split(';').filter((root) => root.trim() !== '');
+  }
+  // Default to common development directories
+  return [process.cwd(), 'g:\\vscodeTest'];
 }
 
 export function createExecuteRouter(): Router {
   const router = Router();
+  const allowedRoots = getAllowedRoots();
 
   // POST /api/execute - Execute a shell command
   router.post('/', async (req: Request<unknown, unknown, ExecuteRequest>, res) => {
     try {
-      const { command } = req.body;
+      const { action, projectPath, sessionId } = req.body;
 
-      if (!command || typeof command !== 'string') {
-        sendError(res, 400, 'Command is required and must be a string');
+      // Validate action
+      if (!action || typeof action !== 'string') {
+        sendError(res, 400, 'Action is required and must be a string');
         return;
       }
 
-      // Security: Only allow specific command patterns
-      // Only allow commands that start with specific safe patterns
-      const allowedPatterns = [
-        /^start powershell/,
-        /^powershell/,
-        /^cmd/,
-      ];
-
-      const isAllowed = allowedPatterns.some(pattern => pattern.test(command.trim()));
-
-      if (!isAllowed) {
-        sendError(res, 403, 'Command pattern not allowed');
+      const allowedActions = ['open-powershell', 'open-cmd'];
+      if (!allowedActions.includes(action)) {
+        sendError(
+          res,
+          403,
+          `Action not allowed. Allowed actions: ${allowedActions.join(', ')}`
+        );
         return;
       }
 
-      // Execute the command
-      const child = spawn(command, { shell: true, detached: true, stdio: 'ignore' });
+      // Validate projectPath
+      if (!projectPath || typeof projectPath !== 'string') {
+        sendError(res, 400, 'Project path is required and must be a string');
+        return;
+      }
+
+      // Validate sessionId
+      if (!sessionId || typeof sessionId !== 'string') {
+        sendError(res, 400, 'Session ID is required and must be a string');
+        return;
+      }
+
+      if (!isValidSessionId(sessionId)) {
+        sendError(
+          res,
+          400,
+          'Invalid session ID format. Only alphanumeric characters and hyphens are allowed (1-64 characters)'
+        );
+        return;
+      }
+
+      // Security: Validate that the project path is within allowed directories
+      if (!isPathAllowed(projectPath, allowedRoots)) {
+        console.error(
+          `[Execute] Path traversal attempt blocked: ${projectPath}`
+        );
+        sendError(res, 403, 'Project path is not in an allowed directory');
+        return;
+      }
+
+      // Verify the path exists and is a directory
+      try {
+        const stats = fs.statSync(projectPath);
+        if (!stats.isDirectory()) {
+          sendError(res, 400, 'Project path must be a directory');
+          return;
+        }
+      } catch (err) {
+        sendError(res, 400, 'Project path does not exist or is not accessible');
+        return;
+      }
+
+      // Build the command with proper escaping
+      // Escape single quotes in path and session ID for PowerShell
+      const escapedPath = escapePowerShellString(projectPath);
+      const escapedSessionId = escapePowerShellString(sessionId);
+
+      let command: string;
+      let args: string[];
+
+      if (action === 'open-powershell') {
+        // Use PowerShell with encoded command to avoid injection
+        const psCommand = `cd '${escapedPath}'; $env:CLAUDE_SESSION_ID='${escapedSessionId}'; Write-Host "Session ${escapedSessionId} restored in ${escapedPath}"`;
+        command = 'powershell.exe';
+        args = ['-NoExit', '-Command', psCommand];
+      } else {
+        // open-cmd
+        // For CMD, we use /K to keep the window open and execute commands
+        // CMD uses different escaping, so we use the start command approach
+        const escapedPathCmd = projectPath.replace(/"/g, '""');
+        command = 'cmd.exe';
+        args = ['/K', `cd /d "${escapedPathCmd}" && set CLAUDE_SESSION_ID=${sessionId} && echo Session %CLAUDE_SESSION_ID% restored in %CD%`];
+      }
+
+      // Execute the command with shell: false for security
+      // This prevents shell injection attacks
+      const child = spawn(command, args, {
+        shell: false,
+        detached: true,
+        stdio: 'ignore',
+      });
       child.unref();
 
-      console.log('[Execute] Command executed:', command);
+      console.log('[Execute] Command executed:', { action, projectPath, sessionId });
 
-      sendSuccess(res, { executed: true });
+      sendSuccess(res, { executed: true, action, projectPath, sessionId });
     } catch (error) {
       console.error('[Execute] Error executing command:', error);
       sendError(res, 500, 'Failed to execute command');

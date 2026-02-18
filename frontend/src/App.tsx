@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Layout,
   Sidebar,
@@ -18,7 +18,7 @@ import { SessionNamesProvider } from './hooks/useSessionNames';
 import { TeamNamesProvider } from './hooks/useTeamNames';
 import { CommandPalette } from './components/CommandPalette';
 import { BatchActionBar } from './components/BatchActionBar';
-import type { Session, Team, TeamWithInboxes } from './types';
+import type { Session, Team, TeamWithInboxes, Message } from './types';
 
 function App() {
   // URL state management
@@ -47,48 +47,27 @@ function App() {
   const { sessions: fetchedSessions, refetch: refetchSessions, loading: sessionsLoading } = useSessions();
   const { projects: fetchedProjects, refetch: refetchProjects } = useProjects();
   const { stats: fetchedStats, refetch: refetchStats } = useDashboardStats();
-  const { teams: fetchedTeams, refetch: refetchTeams, loading: teamsLoading } = useTeams();
+  const { teams: fetchedTeams, refetch: refetchTeams, loading: teamsLoading } = useTeams(5000); // 5s polling for team/member changes
   const { session: selectedSession, setSession: setSelectedSession } = useSession(
     selectedSessionId,
-    1000,
+    0, // Disable polling - WebSocket handles real-time updates
     true
   );
-  const { team: fetchedTeamData } = useTeam(selectedTeamId, 1000);
+  const { team: fetchedTeamData } = useTeam(selectedTeamId, 5000); // 5s polling for real-time updates
 
-  // Update local state when data is fetched
+  // Update local state when data is fetched - 合并为一个 useEffect
   useEffect(() => {
-    if (fetchedSessions) {
-      setSessions(fetchedSessions);
-    }
-  }, [fetchedSessions]);
-
-  useEffect(() => {
-    if (fetchedProjects) {
-      setProjects(fetchedProjects);
-    }
-  }, [fetchedProjects]);
-
-  useEffect(() => {
-    if (fetchedStats) {
-      setStats(fetchedStats);
-    }
-  }, [fetchedStats]);
-
-  useEffect(() => {
-    if (fetchedTeams) {
-      setTeams(fetchedTeams);
-    }
-  }, [fetchedTeams]);
-
-  useEffect(() => {
-    if (fetchedTeamData) {
-      setTeamData(fetchedTeamData);
-    }
-  }, [fetchedTeamData]);
+    if (fetchedSessions) setSessions(fetchedSessions);
+    if (fetchedProjects) setProjects(fetchedProjects);
+    if (fetchedStats) setStats(fetchedStats);
+    if (fetchedTeams) setTeams(fetchedTeams);
+    if (fetchedTeamData) setTeamData(fetchedTeamData);
+  }, [fetchedSessions, fetchedProjects, fetchedStats, fetchedTeams, fetchedTeamData]);
 
   // WebSocket callbacks
   const handleSessionsInit = useCallback((newSessions: Session[]) => {
-    setSessions(newSessions);
+    // Only use WebSocket init data if HTTP data hasn't loaded yet
+    setSessions((prev) => (prev.length === 0 ? newSessions : prev));
   }, []);
 
   const handleSessionsUpdated = useCallback((newSessions: Session[]) => {
@@ -97,16 +76,24 @@ function App() {
 
   const handleSessionData = useCallback(
     (updatedSession: Session) => {
-      // Update selected session if it matches
-      if (updatedSession.sessionId === selectedSessionId) {
-        setSelectedSession(updatedSession);
-      }
-      // Also update the session in the sessions list
+      // Merge with existing session data to preserve full conversation
+      setSelectedSession((prev) => {
+        if (!prev || prev.sessionId !== updatedSession.sessionId) return prev;
+        // Preserve messages if update doesn't have them (WebSocket often sends metadata only)
+        const mergedMessages =
+          updatedSession.messages && updatedSession.messages.length > 0
+            ? updatedSession.messages
+            : prev.messages;
+        return { ...prev, ...updatedSession, messages: mergedMessages };
+      });
+      // Update sessions list (metadata only, preserve existing messages)
       setSessions((prev) =>
-        prev.map((s) => (s.sessionId === updatedSession.sessionId ? { ...s, ...updatedSession } : s))
+        prev.map((s) =>
+          s.sessionId === updatedSession.sessionId ? { ...s, ...updatedSession, messages: s.messages } : s
+        )
       );
     },
-    [selectedSessionId, setSelectedSession]
+    [setSelectedSession]
   );
 
   const handleSessionUpdated = useCallback((updatedSession: Session) => {
@@ -116,7 +103,8 @@ function App() {
   }, []);
 
   const handleProjectsInit = useCallback((newProjects: any[]) => {
-    setProjects(newProjects);
+    // Only use WebSocket init data if HTTP data hasn't loaded yet
+    setProjects((prev) => (prev.length === 0 ? newProjects : prev));
   }, []);
 
   const handleProjectsUpdated = useCallback((newProjects: any[]) => {
@@ -145,6 +133,25 @@ function App() {
     );
   }, []);
 
+  // Handle real-time message updates from WebSocket
+  const handleMessagesUpdated = useCallback((data: {
+    teamId: string;
+    memberId: string;
+    messages: Message[];
+  }) => {
+    setTeamData((prev) => {
+      if (!prev || prev.id !== data.teamId) return prev;
+      return {
+        ...prev,
+        inboxes: prev.inboxes.map((inbox) =>
+          inbox.memberName === data.memberId
+            ? { ...inbox, messages: data.messages }
+            : inbox
+        ),
+      };
+    });
+  }, []);
+
   // WebSocket connection
   const { connected, subscribeToSession, unsubscribeFromSession, subscribeToTeam, unsubscribeFromTeam } =
     useWebSocket({
@@ -159,6 +166,7 @@ function App() {
       onTeamsUpdated: handleTeamsUpdated,
       onTeamData: handleTeamData,
       onTeamUpdated: handleTeamUpdated,
+      onMessagesUpdated: handleMessagesUpdated,
     });
 
   // Subscribe to session when selected
@@ -455,6 +463,7 @@ function App() {
                 selectedMember={selectedMemberId}
                 onSelectMember={handleSelectMember}
                 messageCounts={messageCounts}
+                inboxes={teamData?.inboxes}
               />
             </div>
             {/* MessagePanel: remaining 55% width */}

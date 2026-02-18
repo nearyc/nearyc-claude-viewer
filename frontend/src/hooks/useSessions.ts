@@ -95,7 +95,7 @@ export function useProjects() {
     setLoading(true);
     setError(null);
     try {
-      const response = await axios.get<ApiResponse<Project[]>>(`${API_BASE}/sessions/projects/all`);
+      const response = await axios.get<ApiResponse<Project[]>>(`${API_BASE}/projects`);
       if (response.data.success && response.data.data) {
         setProjects(response.data.data);
       } else {

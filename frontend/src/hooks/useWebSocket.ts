@@ -11,8 +11,8 @@ import type {
   ClientToServerEvents,
 } from '../types';
 
-// Environment configuration with fallback
-const WS_URL = (import.meta as any).env?.VITE_WS_URL || 'http://localhost:13927';
+// Use relative URL to leverage Vite proxy
+const WS_URL = '';
 
 interface WebSocketState {
   connected: boolean;
@@ -147,6 +147,12 @@ export function useWebSocket(callbacks: WebSocketCallbacks = {}) {
       callbacksRef.current.onTeamUpdated?.(data.team);
     });
 
+    // Handle team:messages event from backend (includes memberId)
+    socket.on('team:messages', (data: { teamId: string; memberId: string; messages: Message[] }) => {
+      callbacksRef.current.onMessagesUpdated?.(data);
+    });
+
+    // Legacy: Handle messages:updated event (if used elsewhere)
     socket.on('messages:updated', (data: { teamId: string; memberId: string; messages: Message[] }) => {
       callbacksRef.current.onMessagesUpdated?.(data);
     });

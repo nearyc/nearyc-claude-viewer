@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   MessageSquare,
   AlertCircle,
@@ -10,12 +10,14 @@ import {
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
+import { getMemberColor } from '../utils/colors';
 import type { Message } from '../types';
 
 interface MessageItemProps {
   message: Message;
   searchQuery?: string;
   memberColor?: string;
+  isLatest?: boolean;
 }
 
 // Hook to force re-render every interval for updating relative timestamps
@@ -430,17 +432,72 @@ const SmartMessageContent: React.FC<SmartMessageContentProps> = ({
   );
 };
 
-export const MessageItem: React.FC<MessageItemProps> = ({ message, searchQuery }) => {
+export const MessageItem: React.FC<MessageItemProps> = ({ message, searchQuery, isLatest }) => {
   useTimeRefresh(10000);
+  const itemRef = useRef<HTMLDivElement>(null);
+
+  // Check if message is "just now" (within 20 seconds) and auto-update
+  const [isJustNow, setIsJustNow] = useState(() => {
+    const now = Date.now();
+    const diff = now - message.timestamp;
+    return diff < 20000;
+  });
+
+  useEffect(() => {
+    const checkJustNow = () => {
+      const now = Date.now();
+      const diff = now - message.timestamp;
+      const justNow = diff < 20000;
+      setIsJustNow(justNow);
+      return justNow;
+    };
+
+    // Initial check
+    const currentlyJustNow = checkJustNow();
+
+    // If currently "just now", schedule checks to remove highlight after 20s
+    if (currentlyJustNow) {
+      const intervalId = setInterval(() => {
+        const stillJustNow = checkJustNow();
+        if (!stillJustNow) {
+          clearInterval(intervalId);
+        }
+      }, 2000);
+
+      // Also set a timeout for exactly 20s to ensure highlight is removed
+      const remainingTime = 20000 - (Date.now() - message.timestamp);
+      const timeoutId = setTimeout(() => {
+        checkJustNow();
+      }, Math.max(remainingTime, 0));
+
+      return () => {
+        clearInterval(intervalId);
+        clearTimeout(timeoutId);
+      };
+    }
+  }, [message.timestamp]);
+
+  // Scroll into view when new message arrives
+  useEffect(() => {
+    if (isLatest && itemRef.current) {
+      itemRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [isLatest]);
 
   const parsed = parseMessageContent(message.content, message.type);
   const typeLabel = getMessageTypeLabel(message.type);
   const typeBadgeStyle = getMessageTypeBadgeStyle(message.type);
   const isCompactType = ['idle_notification', 'shutdown_approved'].includes(parsed.type);
 
+  // Get color for the message sender
+  const senderColor = getMemberColor(message.sender);
+
   return (
     <div
-      className="group relative rounded-lg border transition-all duration-200 overflow-hidden"
+      ref={itemRef}
+      className={`group relative rounded-lg border transition-all duration-200 overflow-hidden ${
+        isJustNow ? 'ring-2 ring-green-500/50 ring-offset-2 ring-offset-gray-950' : ''
+      }`}
       style={{
         backgroundColor: 'rgba(30, 41, 59, 0.4)',
         borderColor: 'var(--border-primary)',
@@ -458,7 +515,13 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, searchQuery }
             {getMessageIcon(message.type)}
             {typeLabel}
           </span>
-          <span className="text-sm font-semibold text-gray-300">{message.sender}</span>
+          <span
+            className="text-sm font-semibold"
+            style={{ color: senderColor }}
+            title={`From: ${message.sender}`}
+          >
+            {message.sender}
+          </span>
         </div>
 
         <span

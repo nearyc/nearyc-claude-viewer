@@ -1,26 +1,122 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { User, Circle } from 'lucide-react';
 import { getMemberColor } from '../utils/colors';
-import type { TeamMember } from '../types';
+import type { TeamMember, MemberInbox, Message } from '../types';
 
 interface MemberListProps {
   members: TeamMember[];
   selectedMember: string | null;
   onSelectMember: (memberName: string | null) => void;
   messageCounts: Record<string, number>;
+  inboxes?: MemberInbox[];
 }
 
 const getStatusColor = (status?: string): string => {
-  switch (status) {
-    case 'online':
-      return 'var(--accent-green)';
-    case 'busy':
-      return 'var(--accent-red)';
-    case 'idle':
-      return 'var(--accent-amber)';
-    default:
-      return 'var(--text-muted)';
+  const statusLower = status?.toLowerCase() || '';
+
+  // Available / Online / Ready states
+  if (['online', 'available', 'ready', 'active', 'idle', 'completed', 'success', 'done'].includes(statusLower)) {
+    return 'var(--accent-green)';
   }
+
+  // Busy / Working states
+  if (['busy', 'working', 'processing', 'in_progress', 'task', 'assigned'].includes(statusLower)) {
+    return 'var(--accent-amber)';
+  }
+
+  // Offline / Shutdown states
+  if (['offline', 'shutdown', 'disconnected', 'unavailable'].includes(statusLower)) {
+    return 'var(--text-muted)';
+  }
+
+  // Error / Failed states
+  if (['error', 'failed', 'crash', 'exception'].includes(statusLower)) {
+    return 'var(--accent-red)';
+  }
+
+  // Default
+  return 'var(--text-muted)';
+};
+
+// Get friendly status label
+const getStatusLabel = (status?: string): string => {
+  if (!status) return 'Offline';
+  const statusLower = status.toLowerCase();
+
+  const labels: Record<string, string> = {
+    online: 'Online',
+    available: 'Available',
+    ready: 'Ready',
+    active: 'Active',
+    idle: 'Idle',
+    completed: 'Done',
+    success: 'Success',
+    done: 'Done',
+    busy: 'Busy',
+    working: 'Working',
+    processing: 'Processing',
+    in_progress: 'In Progress',
+    task: 'Task',
+    assigned: 'Assigned',
+    offline: 'Offline',
+    shutdown: 'Offline',
+    disconnected: 'Offline',
+    unavailable: 'Unavailable',
+    error: 'Error',
+    failed: 'Failed',
+    crash: 'Crashed',
+    exception: 'Error',
+  };
+
+  return labels[statusLower] || status.charAt(0).toUpperCase() + status.slice(1);
+};
+
+// Get status badge style
+const getStatusBadgeStyle = (status?: string): React.CSSProperties => {
+  const statusLower = status?.toLowerCase() || '';
+
+  // Available / Online / Ready states - Green
+  if (['online', 'available', 'ready', 'active', 'completed', 'success', 'done'].includes(statusLower)) {
+    return {
+      backgroundColor: 'rgba(34, 197, 94, 0.15)',
+      color: 'var(--accent-green)',
+      borderColor: 'rgba(34, 197, 94, 0.3)',
+    };
+  }
+
+  // Idle states - Blue
+  if (['idle'].includes(statusLower)) {
+    return {
+      backgroundColor: 'rgba(59, 130, 246, 0.15)',
+      color: 'var(--accent-blue)',
+      borderColor: 'rgba(59, 130, 246, 0.3)',
+    };
+  }
+
+  // Busy / Working states - Amber
+  if (['busy', 'working', 'processing', 'in_progress', 'task', 'assigned'].includes(statusLower)) {
+    return {
+      backgroundColor: 'rgba(245, 158, 11, 0.15)',
+      color: 'var(--accent-amber)',
+      borderColor: 'rgba(245, 158, 11, 0.3)',
+    };
+  }
+
+  // Error / Failed states - Red
+  if (['error', 'failed', 'crash', 'exception'].includes(statusLower)) {
+    return {
+      backgroundColor: 'rgba(239, 68, 68, 0.15)',
+      color: 'var(--accent-red)',
+      borderColor: 'rgba(239, 68, 68, 0.3)',
+    };
+  }
+
+  // Offline / Default - Gray
+  return {
+    backgroundColor: 'rgba(148, 163, 184, 0.15)',
+    color: 'var(--text-muted)',
+    borderColor: 'rgba(148, 163, 184, 0.3)',
+  };
 };
 
 const ROLE_STYLES: Record<string, React.CSSProperties> = {
@@ -59,12 +155,98 @@ const getRoleBadgeStyle = (role: string): React.CSSProperties => {
   };
 };
 
+// Parse member status from their messages
+const getMemberStatusFromMessages = (messages: Message[]): string => {
+  if (!messages || messages.length === 0) return 'offline';
+
+  // Find the most recent status-related message
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+
+    // Check explicit message types
+    if (msg.type === 'idle_notification') {
+      try {
+        const data = JSON.parse(msg.content);
+        const status = data.idleReason || data.status;
+        if (status) return status.toLowerCase();
+      } catch {
+        // Try to infer from text content
+        const text = msg.content?.toLowerCase() || '';
+        if (text.includes('available')) return 'available';
+        if (text.includes('idle')) return 'idle';
+        if (text.includes('busy')) return 'busy';
+      }
+      return 'available';
+    }
+
+    if (msg.type === 'status_update') {
+      try {
+        const data = JSON.parse(msg.content);
+        const status = data.status;
+        if (status) return status.toLowerCase();
+      } catch {
+        return 'busy';
+      }
+    }
+
+    if (msg.type === 'shutdown_approved' || msg.type === 'shutdown_request') {
+      return 'offline';
+    }
+
+    if (msg.type === 'task_assignment' || msg.type === 'task_completed') {
+      return 'working';
+    }
+
+    // Try to infer status from message content
+    if (msg.content) {
+      try {
+        const data = JSON.parse(msg.content);
+        const status = data.status || data.idleReason || data.state;
+        if (status) return status.toLowerCase();
+      } catch {
+        // Not JSON, check text content
+        const text = msg.content.toLowerCase();
+        if (text.includes('available') || text.includes('idle')) return 'available';
+        if (text.includes('busy') || text.includes('working') || text.includes('processing')) return 'busy';
+        if (text.includes('complete') || text.includes('done')) return 'completed';
+        if (text.includes('error') || text.includes('fail')) return 'error';
+        if (text.includes('shutdown') || text.includes('offline')) return 'offline';
+      }
+    }
+  }
+
+  // Has messages but no explicit status - check most recent message time
+  const lastMessage = messages[messages.length - 1];
+  const timeSinceLastMessage = Date.now() - lastMessage.timestamp;
+
+  // If last message was within 5 minutes, assume active
+  if (timeSinceLastMessage < 5 * 60 * 1000) {
+    return 'online';
+  }
+
+  // If last message was within 30 minutes, assume idle
+  if (timeSinceLastMessage < 30 * 60 * 1000) {
+    return 'idle';
+  }
+
+  return 'offline';
+};
+
 export const MemberList: React.FC<MemberListProps> = ({
   members,
   selectedMember,
   onSelectMember,
   messageCounts,
+  inboxes,
 }) => {
+  // Create member status mapping from inboxes
+  const memberStatuses = useMemo(() => {
+    const statuses: Record<string, string> = {};
+    inboxes?.forEach((inbox) => {
+      statuses[inbox.memberName] = getMemberStatusFromMessages(inbox.messages);
+    });
+    return statuses;
+  }, [inboxes]);
   if (members.length === 0) {
     return (
       <div
@@ -142,6 +324,7 @@ export const MemberList: React.FC<MemberListProps> = ({
           const color = getMemberColor(member.name);
           const messageCount = messageCounts[member.name] || 0;
           const isSelected = selectedMember === member.name;
+          const status = memberStatuses[member.name] || 'offline';
 
           return (
             <button
@@ -183,7 +366,7 @@ export const MemberList: React.FC<MemberListProps> = ({
                     style={{
                       backgroundColor: 'var(--bg-primary)',
                       borderColor: 'var(--bg-primary)',
-                      color: getStatusColor(),
+                      color: getStatusColor(status),
                     }}
                   />
                 </div>
@@ -204,6 +387,12 @@ export const MemberList: React.FC<MemberListProps> = ({
                       style={getRoleBadgeStyle(member.agentType || 'unknown')}
                     >
                       {member.agentType || 'unknown'}
+                    </span>
+                    <span
+                      className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border"
+                      style={getStatusBadgeStyle(status)}
+                    >
+                      {getStatusLabel(status)}
                     </span>
                     {messageCount > 0 && (
                       <span className="text-xs" style={{ color: 'var(--text-muted)' }}>

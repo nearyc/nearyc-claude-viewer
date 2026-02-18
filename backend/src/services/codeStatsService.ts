@@ -3,7 +3,7 @@ import path from 'path';
 import { createReadStream } from 'fs';
 import readline from 'readline';
 import type { SessionsService } from './sessionsService';
-import type { TeamsService } from './TeamsService';
+import type { TeamsService } from './teamsService';
 import type { ConversationMessage, RawInboxMessage } from '../types';
 
 export interface CodeStats {

@@ -364,10 +364,10 @@ export const SessionList: React.FC<SessionListProps> = ({
               const title = customName || getSessionTitle(session);
 
               return (
-                <button
+                <div
                   key={session.sessionId}
                   onClick={() => onSelect(session)}
-                  className="w-full px-3 py-3 text-left rounded-lg transition-all duration-150 border group relative"
+                  className="w-full px-3 py-3 text-left rounded-lg transition-all duration-150 border group relative cursor-pointer"
                   style={{
                     backgroundColor: isSelected
                       ? 'rgba(59, 130, 246, 0.1)'
@@ -416,9 +416,9 @@ export const SessionList: React.FC<SessionListProps> = ({
                   <div className="flex items-center gap-2 mb-1">
                     {/* Batch selection checkbox */}
                     {(enableBatchSelection || batchSelectionCount > 0) && (
-                      <button
+                      <span
                         onClick={(e) => handleToggleSelection(e, session.sessionId)}
-                        className="flex-shrink-0 p-0.5 rounded transition-colors"
+                        className="flex-shrink-0 p-0.5 rounded transition-colors cursor-pointer"
                         style={{
                           color: isBatchSelected ? 'var(--accent-blue)' : 'var(--text-muted)',
                         }}
@@ -434,7 +434,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                         ) : (
                           <Square className="w-4 h-4" />
                         )}
-                      </button>
+                      </span>
                     )}
                     {hasCustom && (
                       <Star
@@ -509,9 +509,9 @@ export const SessionList: React.FC<SessionListProps> = ({
                         {formatRelativeTime(session.updatedAt)}
                       </span>
                       {/* Delete button */}
-                      <button
+                      <span
                         onClick={(e) => handleDeleteClick(e, session)}
-                        className="p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                         style={{
                           color: 'var(--text-muted)',
                         }}
@@ -526,10 +526,10 @@ export const SessionList: React.FC<SessionListProps> = ({
                         title="删除会话"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      </span>
                     </div>
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>
