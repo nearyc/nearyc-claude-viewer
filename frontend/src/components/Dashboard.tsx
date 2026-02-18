@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { formatRelativeTime } from '../utils/time';
 import type { DashboardStats, Session, Team } from '../types';
+import { isSystemContent } from '../types';
 import { ActivityHeatmap } from './ActivityHeatmap';
 import { TrendChart } from './TrendChart';
 import { ActivityTimeline } from './ActivityTimeline';
@@ -90,8 +91,10 @@ interface SessionListItemProps {
 }
 
 const SessionListItem: React.FC<SessionListItemProps> = ({ session, onClick }) => {
-  const title = session.inputs.length > 0
-    ? session.inputs[0].display.slice(0, 50) + (session.inputs[0].display.length > 50 ? '...' : '')
+  // Find the first non-system input
+  const validInput = session.inputs.find(input => !isSystemContent(input.display));
+  const title = validInput
+    ? validInput.display.slice(0, 50) + (validInput.display.length > 50 ? '...' : '')
     : 'Empty Session';
 
   return (

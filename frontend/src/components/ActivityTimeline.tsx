@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { MessageSquare, Users, Clock } from 'lucide-react';
 import type { Session, Team, ActivityItem } from '../types';
+import { isSystemContent } from '../types';
 import { formatRelativeTime } from '../utils/time';
 
 interface ActivityTimelineProps {
@@ -29,8 +30,10 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
 
     // Add session activities
     sessions.forEach((session) => {
-      const title = session.inputs.length > 0
-        ? session.inputs[0].display.slice(0, 60) + (session.inputs[0].display.length > 60 ? '...' : '')
+      // Find the first non-system input
+      const validInput = session.inputs.find(input => !isSystemContent(input.display));
+      const title = validInput
+        ? validInput.display.slice(0, 60) + (validInput.display.length > 60 ? '...' : '')
         : 'Empty Session';
 
       items.push({

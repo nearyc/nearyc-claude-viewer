@@ -2,6 +2,7 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { MessageSquare, FolderOpen, Search, Star, Trash2, RefreshCw, Tag, CheckSquare, Square } from 'lucide-react';
 import { formatRelativeTime } from '../utils/time';
 import type { Session } from '../types';
+import { isSystemContent } from '../types';
 import { useSessionNames } from '../hooks/useSessionNames';
 import { useSessionTags } from '../hooks/useSessionTags';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -25,8 +26,15 @@ const getSessionTitle = (session: Session): string => {
   if (session.inputs.length === 0) {
     return 'Empty Session';
   }
-  const firstInput = session.inputs[0];
-  const content = firstInput.display || '';
+
+  // Find the first non-system input
+  const validInput = session.inputs.find(input => !isSystemContent(input.display));
+
+  if (!validInput) {
+    return 'Empty Session';
+  }
+
+  const content = validInput.display || '';
   return content.slice(0, 50) + (content.length > 50 ? '...' : '');
 };
 

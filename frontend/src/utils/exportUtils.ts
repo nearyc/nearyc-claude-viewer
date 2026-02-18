@@ -1,4 +1,5 @@
 import type { Session, ChatMessage } from '../types';
+import { isSystemContent } from '../types';
 
 export type ExportFormat = 'markdown' | 'json' | 'html';
 
@@ -51,9 +52,10 @@ const exportToMarkdown = (
   const { includeMetadata = true, includeTimestamps = true } = options;
   const lines: string[] = [];
 
-  // Title
-  const title = session.inputs.length > 0
-    ? session.inputs[0].display.slice(0, 100)
+  // Title - find first non-system input
+  const validInput = session.inputs.find(input => !isSystemContent(input.display));
+  const title = validInput
+    ? validInput.display.slice(0, 100)
     : 'Empty Session';
   lines.push(`# ${title}`);
   lines.push('');
@@ -174,8 +176,10 @@ const exportToHtml = (
 ): string => {
   const { includeMetadata = true, includeTimestamps = true } = options;
 
-  const title = session.inputs.length > 0
-    ? session.inputs[0].display.slice(0, 100)
+  // Find first non-system input for title
+  const validInput = session.inputs.find(input => !isSystemContent(input.display));
+  const title = validInput
+    ? validInput.display.slice(0, 100)
     : 'Empty Session';
 
   const sortedMessages = [...session.messages].sort(
@@ -322,8 +326,10 @@ export const exportSession = (
 ): { content: string; filename: string; mimeType: string } => {
   const { format } = options;
 
-  const title = session.inputs.length > 0
-    ? session.inputs[0].display.slice(0, 30).replace(/[^\w\s-]/g, '').trim()
+  // Find first non-system input for filename
+  const validInput = session.inputs.find(input => !isSystemContent(input.display));
+  const title = validInput
+    ? validInput.display.slice(0, 30).replace(/[^\w\s-]/g, '').trim()
     : 'session';
 
   const timestamp = new Date().toISOString().slice(0, 10);

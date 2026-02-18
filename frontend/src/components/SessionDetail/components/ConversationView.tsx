@@ -22,7 +22,7 @@ const SYSTEM_MESSAGE_PATTERNS = [
 ];
 
 function isSystemMessage(message: ChatMessage): boolean {
-  if (message.role !== 'system') return false;
+  // Check if content contains system message patterns
   return SYSTEM_MESSAGE_PATTERNS.some(pattern => pattern.test(message.content));
 }
 

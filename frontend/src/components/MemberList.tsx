@@ -193,7 +193,7 @@ const getMemberStatusFromMessages = (messages: Message[]): string => {
       return 'offline';
     }
 
-    if (msg.type === 'task_assignment' || msg.type === 'task_completed') {
+    if (msg.type === 'task_completed') {
       return 'working';
     }
 
