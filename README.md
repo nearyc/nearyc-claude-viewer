@@ -59,14 +59,25 @@ claude-viewer/
 │   │   │   ├── search.ts   # 搜索 API
 │   │   │   └── favorites.ts # 收藏 API（Session/Team 名称、标签、筛选器）
 │   │   ├── services/       # 业务逻辑服务
-│   │   │   ├── sessionsService.ts  # Sessions 数据服务
-│   │   │   ├── teamsService.ts     # Teams 数据服务（含消息格式转换）
+│   │   │   ├── sessions/           # Sessions 模块化服务
+│   │   │   │   ├── PathUtils.ts        # 路径处理工具
+│   │   │   │   ├── SessionCache.ts     # 缓存管理
+│   │   │   │   ├── SessionLoader.ts    # 会话加载器
+│   │   │   │   ├── ProjectScanner.ts   # 项目扫描器
+│   │   │   │   ├── ConversationLoader.ts # 对话加载器
+│   │   │   │   └── SessionRepository.ts  # 会话存储库
+│   │   │   ├── sessionsService.ts  # Sessions 主服务（组合模式）
+│   │   │   ├── teamsService.ts     # Teams 数据服务
 │   │   │   ├── projectsService.ts  # Projects 数据服务
-│   │   │   ├── statsService.ts     # 统计服务（活动、趋势）
+│   │   │   ├── statsService.ts     # 统计服务
 │   │   │   ├── searchService.ts    # 全文搜索服务
 │   │   │   ├── codeStatsService.ts # 代码产出统计服务
 │   │   │   ├── activityService.ts  # 实时活动流服务
 │   │   │   └── favoritesService.ts # 收藏数据持久化服务
+│   │   ├── utils/          # 工具函数
+│   │   │   ├── apiResponse.ts    # 统一 API 响应格式
+│   │   │   ├── pathUtils.ts      # 路径处理
+│   │   │   └── dateUtils.ts      # 日期处理
 │   │   └── types/          # 类型定义
 │   └── package.json
 ├── frontend/               # 前端应用
@@ -79,7 +90,21 @@ claude-viewer/
 │   │   │   ├── Layout.tsx        # 可调整布局
 │   │   │   ├── Dashboard.tsx     # 仪表盘（含热力图、趋势图、时间线）
 │   │   │   ├── SessionList.tsx   # Session 列表（含批量操作、智能筛选）
-│   │   │   ├── SessionDetail.tsx # Session 详情（含导出、标签）
+│   │   │   ├── SessionDetail/    # Session 详情组件目录
+│   │   │   │   ├── components/       # 子组件
+│   │   │   │   │   ├── SessionHeader.tsx   # 会话头部
+│   │   │   │   │   ├── SessionMeta.tsx     # 元数据展示
+│   │   │   │   │   ├── SessionActions.tsx  # 操作按钮
+│   │   │   │   │   ├── NavigationBar.tsx   # 导航栏
+│   │   │   │   │   ├── SearchBar.tsx       # 搜索栏
+│   │   │   │   │   ├── BookmarksList.tsx   # 书签列表
+│   │   │   │   │   ├── ConversationView.tsx # 对话视图
+│   │   │   │   │   └── RawInputsView.tsx   # 原始输入视图
+│   │   │   │   ├── hooks/            # 自定义 Hooks
+│   │   │   │   │   ├── useBookmarks.ts     # 书签状态管理
+│   │   │   │   │   ├── useSearch.ts        # 搜索功能
+│   │   │   │   │   └── useScrollNavigation.ts # 滚动导航
+│   │   │   │   └── SessionDetail.tsx # 主组件（精简版）
 │   │   │   ├── TeamList.tsx      # Team 列表
 │   │   │   ├── MemberList.tsx    # 成员列表
 │   │   │   ├── MessagePanel.tsx  # 消息面板
@@ -152,6 +177,22 @@ npm run build
 # 构建后端
 npm run build:backend
 ```
+
+### 运行测试
+
+```bash
+# 后端测试 (Jest)
+cd backend
+npm test
+npm run test:coverage  # 覆盖率报告
+
+# 前端测试 (Vitest)
+cd frontend
+npm test
+npm run test:coverage  # 覆盖率报告
+```
+
+**测试覆盖率目标**: 80%+
 
 ## 配置
 
