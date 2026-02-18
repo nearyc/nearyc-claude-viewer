@@ -53,20 +53,36 @@ Start-Sleep -Seconds 1
 Write-Info "`n[Step 2/4] Checking dependencies..."
 
 if (-not $SkipBackend) {
-    if (-not (Test-Path "$ScriptDir\backend\node_modules")) {
+    # Check for node_modules in root (workspace mode) or backend directory
+    $rootNodeModules = Test-Path "$ScriptDir\node_modules"
+    $backendNodeModules = Test-Path "$ScriptDir\backend\node_modules"
+
+    if (-not $rootNodeModules -and -not $backendNodeModules) {
         Write-Warning "  Backend dependencies not found. Running npm install..."
-        Set-Location "$ScriptDir\backend"
-        npm install | Out-Null
+        Set-Location $ScriptDir
+        npm install
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "  npm install failed with exit code $LASTEXITCODE"
+            exit 1
+        }
         Set-Location $ScriptDir
     }
     Write-Success "  Backend dependencies OK"
 }
 
 if (-not $SkipFrontend) {
-    if (-not (Test-Path "$ScriptDir\frontend\node_modules")) {
+    # Check for node_modules in root (workspace mode) or frontend directory
+    $rootNodeModules = Test-Path "$ScriptDir\node_modules"
+    $frontendNodeModules = Test-Path "$ScriptDir\frontend\node_modules"
+
+    if (-not $rootNodeModules -and -not $frontendNodeModules) {
         Write-Warning "  Frontend dependencies not found. Running npm install..."
-        Set-Location "$ScriptDir\frontend"
-        npm install | Out-Null
+        Set-Location $ScriptDir
+        npm install
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "  npm install failed with exit code $LASTEXITCODE"
+            exit 1
+        }
         Set-Location $ScriptDir
     }
     Write-Success "  Frontend dependencies OK"

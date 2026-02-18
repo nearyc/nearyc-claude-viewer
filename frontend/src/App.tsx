@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Layout,
   Sidebar,
@@ -55,36 +55,14 @@ function App() {
   );
   const { team: fetchedTeamData } = useTeam(selectedTeamId, 1000);
 
-  // Update local state when data is fetched
+  // Update local state when data is fetched - 合并为一个 useEffect
   useEffect(() => {
-    if (fetchedSessions) {
-      setSessions(fetchedSessions);
-    }
-  }, [fetchedSessions]);
-
-  useEffect(() => {
-    if (fetchedProjects) {
-      setProjects(fetchedProjects);
-    }
-  }, [fetchedProjects]);
-
-  useEffect(() => {
-    if (fetchedStats) {
-      setStats(fetchedStats);
-    }
-  }, [fetchedStats]);
-
-  useEffect(() => {
-    if (fetchedTeams) {
-      setTeams(fetchedTeams);
-    }
-  }, [fetchedTeams]);
-
-  useEffect(() => {
-    if (fetchedTeamData) {
-      setTeamData(fetchedTeamData);
-    }
-  }, [fetchedTeamData]);
+    if (fetchedSessions) setSessions(fetchedSessions);
+    if (fetchedProjects) setProjects(fetchedProjects);
+    if (fetchedStats) setStats(fetchedStats);
+    if (fetchedTeams) setTeams(fetchedTeams);
+    if (fetchedTeamData) setTeamData(fetchedTeamData);
+  }, [fetchedSessions, fetchedProjects, fetchedStats, fetchedTeams, fetchedTeamData]);
 
   // WebSocket callbacks
   const handleSessionsInit = useCallback((newSessions: Session[]) => {

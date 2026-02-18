@@ -2,8 +2,11 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import path from 'path';
 import os from 'os';
+import type { Socket } from 'socket.io';
 
 import { createSessionsRouter } from './routes/sessions';
 import { createTeamsRouter } from './routes/teams';
@@ -13,7 +16,7 @@ import { createExecuteRouter } from './routes/execute';
 import { createSearchRouter } from './routes/search';
 import { createFavoritesRouter } from './routes/favorites';
 import { SessionsService } from './services/sessionsService';
-import { TeamsService } from './services/TeamsService';
+import { TeamsService } from './services/teamsService';
 import { StatsService } from './services/statsService';
 import { SearchService } from './services/searchService';
 import { FavoritesService } from './services/favoritesService';
@@ -22,6 +25,72 @@ import { CodeStatsService } from './services/codeStatsService';
 import { FileWatcher } from './services/fileWatcher';
 import type { FileWatcherChangeEvent } from './services/fileWatcher';
 import type { DashboardStats, TypedSocket } from './types';
+
+// API Key validation helper
+function validateApiKey(key: string | undefined): boolean {
+  const apiKey = process.env.API_KEY;
+  // If API_KEY is not set, allow all requests (development mode)
+  if (!apiKey) {
+    return true;
+  }
+  return key === apiKey;
+}
+
+// API Key authentication middleware
+function apiKeyAuth(req: express.Request, res: express.Response, next: express.NextFunction): void {
+  // Skip authentication for health check endpoint
+  if (req.path === '/api/health') {
+    next();
+    return;
+  }
+
+  const apiKey = req.headers['x-api-key'] as string | undefined;
+
+  if (!validateApiKey(apiKey)) {
+    res.status(401).json({
+      success: false,
+      error: 'Unauthorized: Invalid or missing API key',
+    });
+    return;
+  }
+
+  next();
+}
+
+// Socket.IO authentication middleware
+function socketAuth(socket: Socket, next: (err?: Error) => void): void {
+  const token = socket.handshake.auth.token as string | undefined ??
+                socket.handshake.query.token as string | undefined;
+
+  if (!validateApiKey(token)) {
+    next(new Error('Unauthorized: Invalid or missing authentication token'));
+    return;
+  }
+
+  next();
+}
+
+// Rate limiter configuration
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: {
+    success: false,
+    error: 'Too many requests from this IP, please try again later.',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Parse CORS origins from environment variable
+function getCorsOrigins(): string[] {
+  const corsOrigin = process.env.CORS_ORIGIN;
+  if (!corsOrigin) {
+    return ['http://localhost:5173'];
+  }
+  // Support comma-separated list of origins
+  return corsOrigin.split(',').map(origin => origin.trim());
+}
 
 export interface ServerInstance {
   app: express.Application;
@@ -58,11 +127,48 @@ export function createServerInstance(): ServerInstance {
   // Create Express app
   const app = express();
 
-  // Middleware
+  // Security middleware - Helmet
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        connectSrc: ["'self'", "ws:", "wss:"],
+        imgSrc: ["'self'", "data:", "blob:"],
+        fontSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        upgradeInsecureRequests: [],
+      },
+    },
+    crossOriginEmbedderPolicy: false, // Allow loading resources from different origins
+  }));
+
+  // Rate limiting
+  app.use(limiter);
+
+  // CORS configuration with strict origin validation
+  const allowedOrigins = getCorsOrigins();
   app.use(cors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      // Allow requests with no origin (e.g., mobile apps, curl requests)
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS policy does not allow access from origin: ${origin}`));
+      }
+    },
     credentials: true,
   }));
+
+  // API Key authentication middleware (after CORS, before routes)
+  app.use(apiKeyAuth);
+
   app.use(express.json());
 
   // Create HTTP server first
@@ -71,11 +177,14 @@ export function createServerInstance(): ServerInstance {
   // Create Socket.IO server early
   const io = new SocketIOServer(httpServer, {
     cors: {
-      origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+      origin: allowedOrigins,
       methods: ['GET', 'POST'],
       credentials: true,
     },
   });
+
+  // Socket.IO authentication middleware
+  io.use(socketAuth);
 
   // Helper function to broadcast stats to all clients
   async function broadcastStats() {

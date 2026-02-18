@@ -1,5 +1,5 @@
 import type { SessionsService } from './sessionsService';
-import type { TeamsService } from './TeamsService';
+import type { TeamsService } from './teamsService';
 import type { Session, Project, Team } from '../types';
 
 // Activity stats interfaces
