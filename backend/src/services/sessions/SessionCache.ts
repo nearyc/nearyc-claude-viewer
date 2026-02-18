@@ -74,9 +74,13 @@ export class SessionCache {
    * Check if cache is valid based on file modification time
    */
   isValid(currentMtime: number): boolean {
+    // If cache is empty, it's invalid
+    if (this.sessionsCache.size === 0) {
+      return false;
+    }
     const currentMtimeFloor = Math.floor(currentMtime);
     const lastMtimeFloor = Math.floor(this.lastModifiedTime);
-    return currentMtimeFloor <= lastMtimeFloor && this.sessionsCache.size > 0;
+    return currentMtimeFloor <= lastMtimeFloor;
   }
 
   /**
