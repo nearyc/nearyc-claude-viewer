@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Inbox, Bell, MessageCircle, Search, Filter, X } from 'lucide-react';
 import { MessageItem } from './MessageItem';
 import { getMemberColor } from '../utils/colors';
@@ -85,8 +85,30 @@ export const MessagePanel: React.FC<MessagePanelProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [messageCount, setMessageCount] = useState(0);
 
   const selectedInbox = team?.inboxes?.find((inbox) => inbox.memberName === selectedMember);
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    const messageLength = selectedInbox?.messages?.length || 0;
+
+    if (messageLength > 0 && messageLength !== messageCount) {
+      setMessageCount(messageLength);
+      // Small delay to ensure DOM has rendered
+      setTimeout(() => {
+        if (scrollContainerRef.current) {
+          scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+        }
+      }, 100);
+    }
+  }, [selectedInbox?.messages?.length, messageCount]);
+
+  // Reset message count when switching members
+  useEffect(() => {
+    setMessageCount(0);
+  }, [selectedMember]);
 
   const filteredMessages = useMemo(() => {
     if (!selectedInbox?.messages) return [];
@@ -154,9 +176,9 @@ export const MessagePanel: React.FC<MessagePanelProps> = ({
     const memberColor = getMemberColor(selectedInbox.memberName);
 
     return (
-      <div className="p-3 space-y-3">
+      <div className="p-3 flex flex-col h-full">
         <div
-          className="flex items-center justify-between pb-3 border-b"
+          className="flex items-center justify-between pb-3 border-b mb-3"
           style={{ borderColor: 'var(--border-primary)' }}
         >
           <div className="flex items-center gap-3">
@@ -185,13 +207,14 @@ export const MessagePanel: React.FC<MessagePanelProps> = ({
           </div>
         </div>
 
-        <div className="space-y-3">
-          {filteredMessages.map((message) => (
+        <div className="space-y-3 flex-1 overflow-y-auto" ref={scrollContainerRef}>
+          {filteredMessages.map((message, index) => (
             <MessageItem
               key={message.id}
               message={message}
               searchQuery={searchQuery}
               memberColor={memberColor}
+              isLatest={index === filteredMessages.length - 1}
             />
           ))}
         </div>

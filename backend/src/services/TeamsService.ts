@@ -286,12 +286,79 @@ export class TeamsService {
     return team?.members || [];
   }
 
+  // Find inbox file for a member (handles name mismatch between config and filename)
+  private async findInboxFile(teamId: string, memberName: string): Promise<string | null> {
+    const inboxesDir = path.join(this.teamsDir, teamId, 'inboxes');
+
+    try {
+      // First try exact match
+      const exactPath = path.join(inboxesDir, `${memberName}.json`);
+      try {
+        await fs.access(exactPath);
+        return exactPath;
+      } catch {
+        // Exact match not found, try to find by reading all files
+      }
+
+      // Read all inbox files and find the one where 'to' field matches memberName
+      const entries = await fs.readdir(inboxesDir, { withFileTypes: true });
+      const inboxFiles = entries.filter(e => e.isFile() && e.name.endsWith('.json'));
+
+      for (const file of inboxFiles) {
+        const filePath = path.join(inboxesDir, file.name);
+        try {
+          const data = await fs.readFile(filePath, 'utf-8');
+          const messages: RawInboxMessage[] = JSON.parse(data);
+
+          // Check if any message has this member as recipient
+          const hasMatch = messages.some(msg =>
+            msg.to === memberName ||
+            (!msg.to && msg.from !== memberName) // If no 'to', check if this is incoming message
+          );
+
+          if (hasMatch) {
+            console.log(`[TeamsService] Found inbox file ${file.name} for member ${memberName}`);
+            return filePath;
+          }
+        } catch {
+          // Skip invalid files
+        }
+      }
+
+      // Fallback: try to match by stripping non-alphanumeric characters
+      const normalizedName = memberName.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '');
+      for (const file of inboxFiles) {
+        const fileNameWithoutExt = path.basename(file.name, '.json');
+        const normalizedFileName = fileNameWithoutExt.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '');
+
+        // Check if normalized names match or one contains the other
+        if (normalizedName === normalizedFileName ||
+            normalizedName.includes(normalizedFileName) ||
+            normalizedFileName.includes(normalizedName)) {
+          console.log(`[TeamsService] Matched inbox file ${file.name} for member ${memberName} (normalized match)`);
+          return path.join(inboxesDir, file.name);
+        }
+      }
+
+      console.log(`[TeamsService] No inbox file found for member ${memberName} in team ${teamId}`);
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
   // Get member messages
   async getMessages(teamId: string, memberName: string): Promise<Message[]> {
     const cacheKey = `${teamId}/${memberName}`;
 
     try {
-      const inboxPath = path.join(this.teamsDir, teamId, 'inboxes', `${memberName}.json`);
+      // Find the correct inbox file (handles name mismatch)
+      const inboxPath = await this.findInboxFile(teamId, memberName);
+      if (!inboxPath) {
+        console.log(`[TeamsService] Inbox not found for ${teamId}/${memberName}`);
+        return [];
+      }
+
       const data = await fs.readFile(inboxPath, 'utf-8');
       const rawMessages: RawInboxMessage[] = JSON.parse(data);
 

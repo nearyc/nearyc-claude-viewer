@@ -147,6 +147,12 @@ export function useWebSocket(callbacks: WebSocketCallbacks = {}) {
       callbacksRef.current.onTeamUpdated?.(data.team);
     });
 
+    // Handle team:messages event from backend (includes memberId)
+    socket.on('team:messages', (data: { teamId: string; memberId: string; messages: Message[] }) => {
+      callbacksRef.current.onMessagesUpdated?.(data);
+    });
+
+    // Legacy: Handle messages:updated event (if used elsewhere)
     socket.on('messages:updated', (data: { teamId: string; memberId: string; messages: Message[] }) => {
       callbacksRef.current.onMessagesUpdated?.(data);
     });

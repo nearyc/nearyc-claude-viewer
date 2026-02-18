@@ -86,8 +86,8 @@ const limiter = rateLimit({
 function getCorsOrigins(): string[] {
   const corsOrigin = process.env.CORS_ORIGIN;
   if (!corsOrigin) {
-    // Allow both common Vite dev server ports
-    return ['http://localhost:5173', 'http://localhost:5174'];
+    // Allow common Vite dev server ports
+    return ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175'];
   }
   // Support comma-separated list of origins
   return corsOrigin.split(',').map(origin => origin.trim());
@@ -386,7 +386,8 @@ export function createServerInstance(): ServerInstance {
         }
       }
     } else if (event.source === 'teams') {
-      // Teams data changed - broadcast to all clients
+      // Teams data changed - clear cache and broadcast to all clients
+      teamsService.clearCache();
       const teams = await teamsService.getTeams();
       io.emit('teams:updated', { teams });
 
@@ -408,11 +409,36 @@ export function createServerInstance(): ServerInstance {
       // Check if it's a messages change (inbox file)
       if (pathParts.length >= 3 && pathParts[1] === 'inboxes') {
         const teamId = pathParts[0];
-        const memberName = path.basename(pathParts[2], '.json');
+        const fileName = path.basename(pathParts[2], '.json');
+
+        // Try to find the actual member name from config (handles filename vs member name mismatch)
+        let memberName = fileName;
+        const teamConfig = await teamsService.getTeamConfig(teamId);
+        if (teamConfig?.members) {
+          // Try exact match first
+          const exactMatch = teamConfig.members.find(m => m.name === fileName);
+          if (exactMatch) {
+            memberName = exactMatch.name;
+          } else {
+            // Try to match by stripping non-alphanumeric characters
+            const normalizedFileName = fileName.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '');
+            const fuzzyMatch = teamConfig.members.find(m => {
+              const normalizedMemberName = m.name.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '');
+              return normalizedMemberName === normalizedFileName ||
+                     normalizedMemberName.includes(normalizedFileName) ||
+                     normalizedFileName.includes(normalizedMemberName);
+            });
+            if (fuzzyMatch) {
+              memberName = fuzzyMatch.name;
+              console.log(`[Socket] Mapped filename '${fileName}' to member '${memberName}'`);
+            }
+          }
+        }
 
         const messages = await teamsService.getMessages(teamId, memberName);
         io.to(`team:${teamId}`).emit('team:messages', {
           teamId,
+          memberId: memberName,
           messages,
         });
 

@@ -971,6 +971,43 @@ $env:PORT=13928  # 后端使用其他端口
 **修复**:
 - `SessionList.tsx`: 将外层按钮改为 `div`，内层使用 `span` 包裹操作按钮
 
+#### 18. Teams 消息不实时显示
+**问题**: 当 claude-viewer 打开时，Claude Code 会话发送消息给团队成员收不到实时更新。
+
+**原因**: `App.tsx` 中未传入 `onMessagesUpdated` 回调，导致 WebSocket 消息更新无法反映到 UI。
+
+**修复**:
+- `App.tsx`: 添加 `handleMessagesUpdated` 回调处理 `team:messages` 事件
+- `useWebSocket.ts`: 确保消息事件正确触发回调
+- `backend/src/server.ts`: 修复文件名与成员名映射问题
+
+#### 19. Teams 成员状态显示异常
+**问题**: team-lead 有大量 "available" 状态消息，其他成员几乎没有状态显示。
+
+**原因**: `MemberList.tsx` 没有从 inbox 消息中解析当前状态，且存在文件名与成员名不匹配问题。
+
+**修复**:
+- `MemberList.tsx`: 添加 `getMemberStatusFromMessages()` 方法解析消息状态
+- 新增 `getStatusLabel()` 和 `getStatusBadgeStyle()` 显示友好状态标签
+- `TeamsService.ts`: 添加 `findInboxFile()` 方法处理文件名模糊匹配
+- 支持多种状态类型：available, busy, working, idle, offline, error
+
+#### 20. Teams 消息面板布局问题
+**问题**: 消息面板下方有较大空地，消息区域未填满可用空间。
+
+**原因**: `MessagePanel.tsx` 中使用了固定的 `maxHeight: 'calc(100vh - 400px)'`。
+
+**修复**:
+- `MessagePanel.tsx`: 使用 `flex-1` 让消息区域自适应填充剩余空间
+- 将外层容器改为 `flex flex-col h-full` 布局
+
+#### 21. 最新消息闪烁问题
+**问题**: 最新消息有闪烁动画（`animate-pulse`），影响阅读体验。
+
+**修复**:
+- `MessageItem.tsx`: 移除 `isLatest ? 'animate-pulse' : ''` 样式
+- 保留 20 秒内新消息的绿色描边提示（`isJustNow`）
+
 ## 技术栈
 
 - **前端**: React 19 + TypeScript + Vite + Tailwind CSS + Socket.io Client

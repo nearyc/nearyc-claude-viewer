@@ -18,7 +18,7 @@ import { SessionNamesProvider } from './hooks/useSessionNames';
 import { TeamNamesProvider } from './hooks/useTeamNames';
 import { CommandPalette } from './components/CommandPalette';
 import { BatchActionBar } from './components/BatchActionBar';
-import type { Session, Team, TeamWithInboxes } from './types';
+import type { Session, Team, TeamWithInboxes, Message } from './types';
 
 function App() {
   // URL state management
@@ -47,13 +47,13 @@ function App() {
   const { sessions: fetchedSessions, refetch: refetchSessions, loading: sessionsLoading } = useSessions();
   const { projects: fetchedProjects, refetch: refetchProjects } = useProjects();
   const { stats: fetchedStats, refetch: refetchStats } = useDashboardStats();
-  const { teams: fetchedTeams, refetch: refetchTeams, loading: teamsLoading } = useTeams();
+  const { teams: fetchedTeams, refetch: refetchTeams, loading: teamsLoading } = useTeams(5000); // 5s polling for team/member changes
   const { session: selectedSession, setSession: setSelectedSession } = useSession(
     selectedSessionId,
     0, // Disable polling - WebSocket handles real-time updates
     true
   );
-  const { team: fetchedTeamData } = useTeam(selectedTeamId, 0); // Disable polling
+  const { team: fetchedTeamData } = useTeam(selectedTeamId, 5000); // 5s polling for real-time updates
 
   // Update local state when data is fetched - 合并为一个 useEffect
   useEffect(() => {
@@ -133,6 +133,25 @@ function App() {
     );
   }, []);
 
+  // Handle real-time message updates from WebSocket
+  const handleMessagesUpdated = useCallback((data: {
+    teamId: string;
+    memberId: string;
+    messages: Message[];
+  }) => {
+    setTeamData((prev) => {
+      if (!prev || prev.id !== data.teamId) return prev;
+      return {
+        ...prev,
+        inboxes: prev.inboxes.map((inbox) =>
+          inbox.memberName === data.memberId
+            ? { ...inbox, messages: data.messages }
+            : inbox
+        ),
+      };
+    });
+  }, []);
+
   // WebSocket connection
   const { connected, subscribeToSession, unsubscribeFromSession, subscribeToTeam, unsubscribeFromTeam } =
     useWebSocket({
@@ -147,6 +166,7 @@ function App() {
       onTeamsUpdated: handleTeamsUpdated,
       onTeamData: handleTeamData,
       onTeamUpdated: handleTeamUpdated,
+      onMessagesUpdated: handleMessagesUpdated,
     });
 
   // Subscribe to session when selected
@@ -443,6 +463,7 @@ function App() {
                 selectedMember={selectedMemberId}
                 onSelectMember={handleSelectMember}
                 messageCounts={messageCounts}
+                inboxes={teamData?.inboxes}
               />
             </div>
             {/* MessagePanel: remaining 55% width */}

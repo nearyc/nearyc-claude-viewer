@@ -928,6 +928,162 @@ components/SessionDetail/
 
 ---
 
+## Teams 功能重构 (2026-02-19)
+
+### 问题背景
+
+Agent Teams 模块存在以下问题：
+1. **消息不实时显示**: WebSocket 消息更新未正确反映到 UI
+2. **状态显示异常**: 只有 team-lead 显示状态，其他成员状态缺失
+3. **布局问题**: 消息面板下方有大量空白区域
+4. **交互问题**: 最新消息闪烁动画影响阅读
+
+### 解决方案
+
+#### 1. 消息实时同步修复
+
+**问题**: `App.tsx` 缺少 `onMessagesUpdated` 回调
+
+```typescript
+// App.tsx - 新增消息更新处理
+const handleMessagesUpdated = useCallback((data: {
+  teamId: string;
+  memberId: string;
+  messages: Message[]
+}) => {
+  setTeamData((prev) => {
+    if (!prev || prev.id !== data.teamId) return prev;
+    return {
+      ...prev,
+      inboxes: prev.inboxes.map((inbox) =>
+        inbox.memberName === data.memberId
+          ? { ...inbox, messages: data.messages }
+          : inbox
+      ),
+    };
+  });
+}, []);
+```
+
+#### 2. 成员状态检测增强
+
+**文件**: `MemberList.tsx`
+
+```typescript
+// 从消息历史中解析成员当前状态
+const getMemberStatusFromMessages = (messages: Message[]): string => {
+  if (!messages || messages.length === 0) return 'offline';
+
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+
+    if (msg.type === 'idle_notification') {
+      try {
+        const data = JSON.parse(msg.content);
+        return data.idleReason || data.status || 'available';
+      } catch {
+        return 'available';
+      }
+    }
+
+    if (msg.type === 'status_update') {
+      try {
+        const data = JSON.parse(msg.content);
+        return data.status || 'busy';
+      } catch {
+        return 'busy';
+      }
+    }
+  }
+
+  return 'online';
+};
+```
+
+**状态类型映射**:
+- `available`, `idle`, `completed`, `success` → 绿色
+- `busy`, `working`, `processing` → 琥珀色
+- `offline`, `shutdown` → 灰色
+- `error`, `failed` → 红色
+
+#### 3. 文件名与成员名映射修复
+
+**问题**: Inbox 文件名为 `----E.json` 但 config.json 中成员名为 `策划师-E`
+
+**修复**: `TeamsService.ts` 中添加模糊匹配
+
+```typescript
+private async findInboxFile(inboxesDir: string, memberName: string): Promise<string | null> {
+  // 1. 精确匹配
+  const exactPath = path.join(inboxesDir, `${memberName}.json`);
+  if (await fileExists(exactPath)) return exactPath;
+
+  // 2. 尝试各种变换
+  const variations = [
+    memberName.replace(/^策划师-/, '----'), // 策划师-E → ----E
+    memberName.replace(/^----/, '策划师-'), // ----E → 策划师-E
+    // ... 其他变体
+  ];
+
+  for (const variant of variations) {
+    const variantPath = path.join(inboxesDir, `${variant}.json`);
+    if (await fileExists(variantPath)) return variantPath;
+  }
+
+  return null;
+}
+```
+
+#### 4. 轮询备份机制
+
+**新增文件**: `useTeamPolling.ts`
+
+```typescript
+export function useTeamPolling({ interval = 5000, enabled = true, onTick }: PollingOptions) {
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (!enabled) return;
+
+    // 立即执行一次
+    onTickRef.current();
+
+    // 设置轮询
+    intervalRef.current = setInterval(() => {
+      onTickRef.current();
+    }, interval);
+
+    return () => clearInterval(intervalRef.current);
+  }, [interval, enabled]);
+
+  return { refresh };
+}
+```
+
+#### 5. 布局修复
+
+**MessagePanel.tsx**:
+```typescript
+// 修复前: 固定高度限制
+<div style={{ maxHeight: 'calc(100vh - 400px)', overflowY: 'auto' }}>
+
+// 修复后: 自适应填充
+<div className="flex flex-col h-full">
+  <div className="flex-1 overflow-y-auto">
+```
+
+### 蜂群修复团队
+
+```
+团队: teams-fix-dev
+├── bug-analyzer       # 问题分析
+├── backend-fixer      # 后端修复
+├── frontend-fixer     # 前端修复
+└── ui-polisher        # UI 优化
+```
+
+---
+
 ## 模块设计原则
 
 ### 1. 单一职责
