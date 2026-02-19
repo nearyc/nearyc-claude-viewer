@@ -57,7 +57,8 @@ export const TimeDensityChart: React.FC<TimeDensityChartProps> = ({ messages, on
             className="flex-1 rounded-t-sm transition-all hover:opacity-80"
             style={{
               height: `${Math.max(20, bucket.intensity * 100)}%`,
-              backgroundColor: `rgba(99, 102, 241, ${0.2 + bucket.intensity * 0.8})`,
+              backgroundColor: `var(--accent-purple)`,
+              opacity: 0.2 + bucket.intensity * 0.8,
             }}
             title={`${bucket.count} messages`}
           />

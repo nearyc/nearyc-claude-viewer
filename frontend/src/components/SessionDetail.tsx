@@ -1,9 +1,11 @@
 import React, { useState, useMemo, useCallback, useDeferredValue } from 'react';
+import { Star, Edit3, Check, X } from 'lucide-react';
 import type { Session } from '../types';
 import { useSessionNames } from '../hooks/useSessionNames';
 import { useSessionTags } from '../hooks/useSessionTags';
 import { useTranslation } from '../hooks/useTranslation';
 import { ExportDialog } from './ExportDialog';
+import { TagSelector } from './TagSelector';
 import {
   useBookmarks,
   useSearch,
@@ -13,7 +15,6 @@ import {
   EmptyState,
   SessionHeader,
   SessionMeta,
-  SessionActions,
   NavigationBar,
   SearchBar,
   BookmarksList,
@@ -42,6 +43,10 @@ export const SessionDetail: React.FC<SessionDetailProps> = ({ session, isUpdatin
   const allTags = getAllTags();
   const sessionCustomName = session ? getSessionName(session.sessionId) : null;
   const isSessionStarred = session ? hasCustomName(session.sessionId) : false;
+
+  // Local state for editing custom name
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [customNameInput, setCustomNameInput] = useState('');
 
   // Use deferred search query to avoid input lag
   const [searchQueryInput, setSearchQueryInput] = useState('');
@@ -157,34 +162,10 @@ export const SessionDetail: React.FC<SessionDetailProps> = ({ session, isUpdatin
           backgroundColor: 'var(--bg-secondary)',
         }}
       >
-        <div className="flex items-start justify-between gap-4 mb-4">
-          <div className="flex-1 min-w-0">
-            <SessionHeader
-              isUpdating={isUpdating}
-              isStarred={isSessionStarred}
-              customName={sessionCustomName ?? undefined}
-              tags={sessionTags}
-              availableTags={allTags}
-              onToggleStar={() => {
-                // Toggle star by setting/removing custom name
-                if (isSessionStarred) {
-                  setSessionName(session.sessionId, '');
-                } else {
-                  setSessionName(session.sessionId, t('session.customName.star'));
-                }
-              }}
-              onAddTag={(tag) => addTag(session.sessionId, tag)}
-              onRemoveTag={(tag) => removeTag(session.sessionId, tag)}
-            />
-          </div>
-          <SessionActions
-            sessionId={session.sessionId}
-            customName={sessionCustomName ?? null}
-            hasCustomName={isSessionStarred}
-            onSetName={setSessionName}
-          />
-        </div>
+        {/* Title row */}
+        <SessionHeader isUpdating={isUpdating} />
 
+        {/* Meta info */}
         <SessionMeta
           sessionId={session.sessionId}
           project={session.project}
@@ -194,6 +175,94 @@ export const SessionDetail: React.FC<SessionDetailProps> = ({ session, isUpdatin
           hasFullConversation={hasFullConversation}
           onExport={() => setIsExportOpen(true)}
         />
+
+        {/* Favorite and Tags row */}
+        <div className="flex items-start gap-3 pt-3 mt-3 border-t" style={{ borderColor: 'var(--border-primary)' }}>
+          {/* Favorite / Custom Name button */}
+          {isEditingName ? (
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <input
+                type="text"
+                value={customNameInput}
+                onChange={(e) => setCustomNameInput(e.target.value)}
+                placeholder={t('session.customName.placeholder')}
+                className="px-2 py-1 text-sm rounded border focus:outline-none w-32"
+                style={{
+                  backgroundColor: 'var(--bg-primary)',
+                  borderColor: 'var(--border-primary)',
+                  color: 'var(--text-primary)',
+                }}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    setSessionName(session.sessionId, customNameInput);
+                    setIsEditingName(false);
+                  } else if (e.key === 'Escape') {
+                    setIsEditingName(false);
+                  }
+                }}
+              />
+              <button
+                onClick={() => {
+                  setSessionName(session.sessionId, customNameInput);
+                  setIsEditingName(false);
+                }}
+                className="p-1"
+                style={{ color: 'var(--accent-green)' }}
+              >
+                <Check className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setIsEditingName(false)}
+                className="p-1"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => {
+                if (isSessionStarred) {
+                  setCustomNameInput(sessionCustomName || '');
+                  setIsEditingName(true);
+                } else {
+                  setSessionName(session.sessionId, t('session.customName.star'));
+                }
+              }}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setCustomNameInput(sessionCustomName || '');
+                setIsEditingName(true);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-all flex-shrink-0 border"
+              style={{
+                color: isSessionStarred ? 'var(--accent-amber)' : 'var(--text-secondary)',
+                backgroundColor: isSessionStarred ? 'var(--accent-amber-subtle)' : 'transparent',
+                borderColor: isSessionStarred ? 'var(--accent-amber-medium)' : 'var(--border-primary)',
+              }}
+              title={isSessionStarred ? sessionCustomName || t('session.customName.star') : t('session.customName.star')}
+            >
+              <Star className="w-4 h-4" fill={isSessionStarred ? 'currentColor' : 'none'} />
+              <span className="max-w-[120px] truncate">
+                {isSessionStarred ? (sessionCustomName || t('session.customName.star')) : t('session.customName.star')}
+              </span>
+              {isSessionStarred && <Edit3 className="w-3 h-3 opacity-60" />}
+            </button>
+          )}
+
+          {/* Tags selector */}
+          <div className="flex-1 min-w-0">
+            <TagSelector
+              tags={sessionTags}
+              availableTags={allTags}
+              onAddTag={(tag) => addTag(session.sessionId, tag)}
+              onRemoveTag={(tag) => removeTag(session.sessionId, tag)}
+              placeholder={t('tag.add')}
+              compact
+            />
+          </div>
+        </div>
       </div>
 
       {/* Navigation Bar */}
