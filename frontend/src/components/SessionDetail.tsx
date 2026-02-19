@@ -180,7 +180,7 @@ export const SessionDetail: React.FC<SessionDetailProps> = ({ session, isUpdatin
         <div className="flex items-start gap-3 pt-3 mt-3 border-t" style={{ borderColor: 'var(--border-primary)' }}>
           {/* Favorite / Custom Name button */}
           {isEditingName ? (
-            <div className="flex items-center gap-1 flex-shrink-0">
+            <div className="flex items-center gap-1 w-1/2">
               <input
                 type="text"
                 value={customNameInput}
@@ -235,7 +235,7 @@ export const SessionDetail: React.FC<SessionDetailProps> = ({ session, isUpdatin
                 setCustomNameInput(sessionCustomName || '');
                 setIsEditingName(true);
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-all flex-shrink-0 border"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-all w-full justify-center border"
               style={{
                 color: isSessionStarred ? 'var(--accent-amber)' : 'var(--text-secondary)',
                 backgroundColor: isSessionStarred ? 'var(--accent-amber-subtle)' : 'transparent',
@@ -252,7 +252,7 @@ export const SessionDetail: React.FC<SessionDetailProps> = ({ session, isUpdatin
           )}
 
           {/* Tags selector */}
-          <div className="flex-1 min-w-0">
+          <div className="w-1/2 min-w-0">
             <TagSelector
               tags={sessionTags}
               availableTags={allTags}
