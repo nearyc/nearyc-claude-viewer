@@ -7,6 +7,7 @@ import { useSessionNames } from '../hooks/useSessionNames';
 import { useSessionTags } from '../hooks/useSessionTags';
 import { ConfirmDialog } from './ConfirmDialog';
 import { deleteSession } from '../api/delete';
+import { useTranslation } from '../hooks/useTranslation';
 
 interface SessionListProps {
   sessions: Session[];
@@ -22,16 +23,16 @@ interface SessionListProps {
   enableBatchSelection?: boolean;
 }
 
-const getSessionTitle = (session: Session): string => {
+const getSessionTitle = (session: Session, emptyLabel: string): string => {
   if (session.inputs.length === 0) {
-    return 'Empty Session';
+    return emptyLabel;
   }
 
   // Find the first non-system input
   const validInput = session.inputs.find(input => !isSystemContent(input.display));
 
   if (!validInput) {
-    return 'Empty Session';
+    return emptyLabel;
   }
 
   const content = validInput.display || '';
@@ -50,6 +51,7 @@ export const SessionList: React.FC<SessionListProps> = ({
   onSelectionChange,
   enableBatchSelection = false,
 }) => {
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const [showOnlyStarred, setShowOnlyStarred] = useState(false);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
@@ -91,7 +93,7 @@ export const SessionList: React.FC<SessionListProps> = ({
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter((session) => {
         const customName = getSessionName(session.sessionId);
-        const title = customName || getSessionTitle(session);
+        const title = customName || getSessionTitle(session, t('session.emptySession'));
         const project = session.project.toLowerCase();
         const tags = getSessionTags(session.sessionId);
         return (
@@ -143,7 +145,7 @@ export const SessionList: React.FC<SessionListProps> = ({
       onSessionDeleted?.(sessionId);
     } catch (error) {
       console.error('Failed to delete session:', error);
-      alert('删除会话失败，请重试');
+      alert(t('session.deleteError'));
     } finally {
       setDeletingSession(null);
     }
@@ -162,13 +164,13 @@ export const SessionList: React.FC<SessionListProps> = ({
         className="px-4 py-3 border-b"
         style={{
           borderColor: 'var(--border-primary)',
-          backgroundColor: 'rgba(30, 41, 59, 0.5)',
+          backgroundColor: 'var(--bg-secondary)',
         }}
       >
         <div className="flex items-center gap-2 mb-3" style={{ color: 'var(--text-primary)' }}>
           <MessageSquare className="w-5 h-5" style={{ color: 'var(--text-muted)' }} />
           <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>
-            {projectFilter ? `Project: ${projectFilter}` : 'All Sessions'}
+            {projectFilter ? `${t('filter.project')}: ${projectFilter}` : t('navigation.sessions')}
           </span>
 
           {/* Refresh button */}
@@ -176,7 +178,7 @@ export const SessionList: React.FC<SessionListProps> = ({
             <button
               onClick={onRefresh}
               disabled={isRefreshing}
-              title="刷新列表"
+              title={t('common.refresh')}
               className="ml-auto flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-all disabled:opacity-50"
               style={{
                 backgroundColor: 'var(--bg-tertiary)',
@@ -191,7 +193,7 @@ export const SessionList: React.FC<SessionListProps> = ({
           {/* Star toggle button */}
           <button
             onClick={() => setShowOnlyStarred(!showOnlyStarred)}
-            title={showOnlyStarred ? '显示所有会话' : '只显示已收藏会话'}
+            title={showOnlyStarred ? t('common.all') : t('filter.showOnlyStarred')}
             className="flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-all"
             style={{
               backgroundColor: showOnlyStarred ? 'rgba(234, 179, 8, 0.2)' : 'var(--bg-tertiary)',
@@ -200,7 +202,7 @@ export const SessionList: React.FC<SessionListProps> = ({
             }}
           >
             <Star className="w-3 h-3" fill={showOnlyStarred ? 'currentColor' : 'none'} />
-            <span>{showOnlyStarred ? '已收藏' : '全部'}</span>
+            <span>{showOnlyStarred ? t('common.all') : t('filter.showOnlyStarred')}</span>
           </button>
 
           {/* Tag filter button */}
@@ -208,7 +210,7 @@ export const SessionList: React.FC<SessionListProps> = ({
             <div className="relative">
               <button
                 onClick={() => setSelectedTag(selectedTag ? null : allTags[0])}
-                title={selectedTag ? '清除标签筛选' : '按标签筛选'}
+                title={selectedTag ? t('filter.clearFilters') : t('tag.title')}
                 className="flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-all"
                 style={{
                   backgroundColor: selectedTag ? 'rgba(59, 130, 246, 0.2)' : 'var(--bg-tertiary)',
@@ -217,7 +219,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                 }}
               >
                 <Tag className="w-3 h-3" />
-                <span>{selectedTag || '标签'}</span>
+                <span>{selectedTag || t('tag.title')}</span>
                 {selectedTag && (
                   <span
                     className="ml-1 px-1 rounded text-[10px]"
@@ -250,10 +252,10 @@ export const SessionList: React.FC<SessionListProps> = ({
                 color: batchSelectionCount > 0 ? 'var(--accent-blue)' : 'var(--text-muted)',
                 border: `1px solid ${batchSelectionCount > 0 ? 'rgba(59, 130, 246, 0.3)' : 'var(--border-primary)'}`,
               }}
-              title={batchSelectionCount > 0 ? `${batchSelectionCount} selected` : 'Enable batch selection'}
+              title={batchSelectionCount > 0 ? t('status.selected', { count: batchSelectionCount }) : t('common.selectAll')}
             >
               <CheckSquare className="w-3 h-3" />
-              <span>{batchSelectionCount > 0 ? batchSelectionCount : 'Select'}</span>
+              <span>{batchSelectionCount > 0 ? batchSelectionCount : t('common.selectAll')}</span>
             </button>
           )}
         </div>
@@ -302,7 +304,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                   border: '1px solid var(--border-primary)',
                 }}
               >
-                清除筛选
+                {t('filter.clearFilters')}
               </button>
             )}
           </div>
@@ -320,7 +322,7 @@ export const SessionList: React.FC<SessionListProps> = ({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search sessions..."
+            placeholder={t('filter.searchPlaceholder')}
             className="w-full pl-9 pr-8 py-2 rounded-lg text-sm transition-colors focus:outline-none"
             style={{
               backgroundColor: 'var(--bg-secondary)',
@@ -352,14 +354,14 @@ export const SessionList: React.FC<SessionListProps> = ({
             <div
               className="w-12 h-12 rounded-full flex items-center justify-center mb-3 border"
               style={{
-                backgroundColor: 'var(--bg-card)',
+                backgroundColor: 'var(--bg-secondary)',
                 borderColor: 'var(--border-primary)',
               }}
             >
               <Search className="w-5 h-5 opacity-40" />
             </div>
             <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              {searchQuery ? 'No sessions match your search' : 'No sessions available'}
+              {searchQuery ? t('empty.noSearchResults') : t('empty.noSessions')}
             </p>
           </div>
         ) : (
@@ -369,7 +371,7 @@ export const SessionList: React.FC<SessionListProps> = ({
               const isBatchSelected = effectiveSelectedIds.has(session.sessionId);
               const customName = getSessionName(session.sessionId);
               const hasCustom = !!customName;
-              const title = customName || getSessionTitle(session);
+              const title = customName || getSessionTitle(session, t('session.emptySession'));
 
               return (
                 <div
@@ -510,7 +512,7 @@ export const SessionList: React.FC<SessionListProps> = ({
 
                   <div className="flex items-center justify-between text-xs">
                     <span style={{ color: 'var(--text-muted)' }}>
-                      {session.inputCount} input{session.inputCount !== 1 ? 's' : ''}
+                      {session.inputCount} {t('session.inputs')}
                     </span>
                     <div className="flex items-center gap-2">
                       <span style={{ color: 'var(--text-tertiary)' }}>
@@ -531,7 +533,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                           e.currentTarget.style.color = 'var(--text-muted)';
                           e.currentTarget.style.backgroundColor = 'transparent';
                         }}
-                        title="删除会话"
+                        title={t('common.delete')}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </span>
@@ -547,14 +549,14 @@ export const SessionList: React.FC<SessionListProps> = ({
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog
         isOpen={!!deletingSession}
-        title="删除会话"
+        title={t('common.delete')}
         message={
           deletingSession
-            ? `确定要删除会话 "${getSessionName(deletingSession.sessionId) || getSessionTitle(deletingSession)}" 吗？此操作不可恢复。`
+            ? t('session.deleteSingleConfirm')
             : ''
         }
-        confirmText="删除"
-        cancelText="取消"
+        confirmText={t('common.delete')}
+        cancelText={t('common.cancel')}
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeletingSession(null)}
         isDestructive={true}

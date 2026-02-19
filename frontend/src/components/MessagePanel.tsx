@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Inbox, Bell, MessageCircle, Search, Filter, X } from 'lucide-react';
 import { MessageItem } from './MessageItem';
 import { getMemberColor } from '../utils/colors';
+import { useTranslation } from '../hooks/useTranslation';
 import type { TeamWithInboxes, Message } from '../types';
 
 interface MessagePanelProps {
@@ -9,15 +10,6 @@ interface MessagePanelProps {
   selectedMember: string | null;
   onViewSession?: (sessionId: string) => void;
 }
-
-const MESSAGE_TYPE_FILTERS = [
-  { value: 'all', label: 'All Types' },
-  { value: 'idle_notification', label: 'Status' },
-  { value: 'status_update', label: 'Updates' },
-  { value: 'task_assignment', label: 'Tasks' },
-  { value: 'shutdown_approved', label: 'System' },
-  { value: 'message', label: 'Messages' },
-] as const;
 
 const getActualMessageType = (message: Message): string => {
   if (message.type && message.type !== 'message') return message.type;
@@ -82,6 +74,7 @@ export const MessagePanel: React.FC<MessagePanelProps> = ({
   team,
   selectedMember,
 }) => {
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
@@ -89,6 +82,16 @@ export const MessagePanel: React.FC<MessagePanelProps> = ({
   const [messageCount, setMessageCount] = useState(0);
 
   const selectedInbox = team?.inboxes?.find((inbox) => inbox.memberName === selectedMember);
+
+  // Get filter options with translations
+  const messageTypeFilters = useMemo(() => [
+    { value: 'all', label: t('message.allTypes') },
+    { value: 'idle_notification', label: t('message.typeStatus') },
+    { value: 'status_update', label: t('message.typeUpdates') },
+    { value: 'task_assignment', label: t('message.typeTasks') },
+    { value: 'shutdown_approved', label: t('message.typeSystem') },
+    { value: 'message', label: t('message.typeMessages') },
+  ], [t]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -132,7 +135,7 @@ export const MessagePanel: React.FC<MessagePanelProps> = ({
       return (
         <EmptyState
           icon={<Inbox className="w-7 h-7 opacity-40" />}
-          message="Select a team to view messages"
+          message={t('message.selectTeam')}
         />
       );
     }
@@ -141,7 +144,7 @@ export const MessagePanel: React.FC<MessagePanelProps> = ({
       return (
         <EmptyState
           icon={<Inbox className="w-7 h-7 opacity-40" />}
-          message="Select a member to view messages"
+          message={t('message.selectMember')}
         />
       );
     }
@@ -150,7 +153,7 @@ export const MessagePanel: React.FC<MessagePanelProps> = ({
       return (
         <EmptyState
           icon={<Bell className="w-7 h-7 opacity-40" />}
-          message="No messages for this member"
+          message={t('message.noMessages')}
         />
       );
     }
@@ -159,14 +162,14 @@ export const MessagePanel: React.FC<MessagePanelProps> = ({
       return (
         <EmptyState
           icon={<Search className="w-7 h-7 opacity-40" />}
-          message="No messages match your filters"
+          message={t('message.noMatchFilters')}
           action={
             <button
               onClick={clearFilters}
               className="mt-2 text-xs"
               style={{ color: 'var(--accent-blue)' }}
             >
-              Clear filters
+              {t('message.clearFilters')}
             </button>
           }
         />
@@ -201,7 +204,7 @@ export const MessagePanel: React.FC<MessagePanelProps> = ({
                 {selectedInbox.memberName}
               </h3>
               <p className="text-sm flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
-                <span>{filteredMessages.length} messages</span>
+                <span>{t('message.messagesCount', { count: filteredMessages.length })}</span>
               </p>
             </div>
           </div>
@@ -232,20 +235,20 @@ export const MessagePanel: React.FC<MessagePanelProps> = ({
         className="px-4 py-3 border-b"
         style={{
           borderColor: 'var(--border-primary)',
-          backgroundColor: 'rgba(30, 41, 59, 0.5)',
+          backgroundColor: 'var(--bg-secondary)',
         }}
       >
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
             <MessageCircle className="w-5 h-5" style={{ color: 'var(--text-muted)' }} />
-            <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>Messages</span>
+            <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>{t('message.title')}</span>
             {totalUnread > 0 && (
               <span
                 className="px-2 py-0.5 text-xs font-medium rounded-full border"
                 style={{
-                  backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                  backgroundColor: 'var(--accent-blue-subtle)',
                   color: 'var(--accent-blue)',
-                  borderColor: 'rgba(59, 130, 246, 0.2)',
+                  borderColor: 'var(--accent-blue-medium)',
                 }}
               >
                 {totalUnread}
@@ -260,17 +263,17 @@ export const MessagePanel: React.FC<MessagePanelProps> = ({
             onClick={() => setShowFilters(!showFilters)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all shrink-0 border"
             style={{
-              backgroundColor: showFilters || typeFilter !== 'all' ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+              backgroundColor: showFilters || typeFilter !== 'all' ? 'var(--accent-blue-subtle)' : 'transparent',
               color: showFilters || typeFilter !== 'all' ? 'var(--accent-blue)' : 'var(--text-muted)',
-              borderColor: showFilters || typeFilter !== 'all' ? 'rgba(59, 130, 246, 0.2)' : 'var(--border-primary)',
+              borderColor: showFilters || typeFilter !== 'all' ? 'var(--accent-blue-medium)' : 'var(--border-primary)',
             }}
           >
             <Filter className="w-3.5 h-3.5" />
-            <span>Filter</span>
+            <span>{t('message.filter')}</span>
             {typeFilter !== 'all' && (
               <span
                 className="ml-0.5 px-1.5 py-0.5 rounded-full text-[10px]"
-                style={{ backgroundColor: 'rgba(59, 130, 246, 0.2)' }}
+                style={{ backgroundColor: 'var(--accent-blue-medium)' }}
               >
                 1
               </span>
@@ -290,7 +293,7 @@ export const MessagePanel: React.FC<MessagePanelProps> = ({
           <div className="relative flex-1">
             <input
               type="text"
-              placeholder="Search messages..."
+              placeholder={t('message.searchPlaceholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full px-3 pr-8 py-2 rounded-lg text-sm transition-colors focus:outline-none border"
@@ -319,7 +322,7 @@ export const MessagePanel: React.FC<MessagePanelProps> = ({
                 color: 'var(--text-muted)',
                 borderColor: 'var(--border-primary)',
               }}
-              title="Clear filters"
+              title={t('message.clearFilters')}
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -328,7 +331,7 @@ export const MessagePanel: React.FC<MessagePanelProps> = ({
 
         {hasActiveFilters && selectedInbox && (
           <div className="mt-2 text-xs" style={{ color: 'var(--text-muted)' }}>
-            Showing {filteredMessages.length} of {selectedInbox.messages.length} messages
+            {t('message.showingCount', { filtered: filteredMessages.length, total: selectedInbox.messages.length })}
           </div>
         )}
 
@@ -337,15 +340,15 @@ export const MessagePanel: React.FC<MessagePanelProps> = ({
             className="flex flex-wrap gap-1.5 mt-2 pt-2 border-t"
             style={{ borderColor: 'var(--border-primary)' }}
           >
-            {MESSAGE_TYPE_FILTERS.map((filter) => (
+            {messageTypeFilters.map((filter) => (
               <button
                 key={filter.value}
                 onClick={() => setTypeFilter(filter.value)}
                 className="px-2.5 py-1 rounded-md text-[10px] font-medium transition-all border"
                 style={{
-                  backgroundColor: typeFilter === filter.value ? 'rgba(59, 130, 246, 0.15)' : 'transparent',
+                  backgroundColor: typeFilter === filter.value ? 'var(--accent-blue-subtle)' : 'transparent',
                   color: typeFilter === filter.value ? 'var(--accent-blue)' : 'var(--text-muted)',
-                  borderColor: typeFilter === filter.value ? 'rgba(59, 130, 246, 0.3)' : 'transparent',
+                  borderColor: typeFilter === filter.value ? 'var(--accent-blue-strong)' : 'transparent',
                 }}
               >
                 {filter.label}

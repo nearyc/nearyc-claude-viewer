@@ -2,6 +2,7 @@ import React, { useState, useMemo, useCallback, useDeferredValue } from 'react';
 import type { Session } from '../types';
 import { useSessionNames } from '../hooks/useSessionNames';
 import { useSessionTags } from '../hooks/useSessionTags';
+import { useTranslation } from '../hooks/useTranslation';
 import { ExportDialog } from './ExportDialog';
 import {
   useBookmarks,
@@ -31,9 +32,16 @@ const MESSAGE_MIN_LENGTH_TO_COLLAPSE = 500;
 
 export const SessionDetail: React.FC<SessionDetailProps> = ({ session, isUpdating }) => {
   // Hooks
+  const { t } = useTranslation();
   const { getSessionName, setSessionName, hasCustomName } = useSessionNames();
   const { getSessionTags, addTag, removeTag, getAllTags } = useSessionTags();
   const { bookmarks, toggleBookmark } = useBookmarks(session?.sessionId);
+
+  // Derived state for header
+  const sessionTags = session ? getSessionTags(session.sessionId) : [];
+  const allTags = getAllTags();
+  const sessionCustomName = session ? getSessionName(session.sessionId) : null;
+  const isSessionStarred = session ? hasCustomName(session.sessionId) : false;
 
   // Use deferred search query to avoid input lag
   const [searchQueryInput, setSearchQueryInput] = useState('');
@@ -146,20 +154,34 @@ export const SessionDetail: React.FC<SessionDetailProps> = ({ session, isUpdatin
         className="px-5 py-4 border-b"
         style={{
           borderColor: 'var(--border-primary)',
-          backgroundColor: 'rgba(30, 41, 59, 0.5)',
+          backgroundColor: 'var(--bg-secondary)',
         }}
       >
-        <div className="flex items-center justify-between mb-4">
-          <SessionHeader isUpdating={isUpdating} />
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <div className="flex-1 min-w-0">
+            <SessionHeader
+              isUpdating={isUpdating}
+              isStarred={isSessionStarred}
+              customName={sessionCustomName ?? undefined}
+              tags={sessionTags}
+              availableTags={allTags}
+              onToggleStar={() => {
+                // Toggle star by setting/removing custom name
+                if (isSessionStarred) {
+                  setSessionName(session.sessionId, '');
+                } else {
+                  setSessionName(session.sessionId, t('session.customName.star'));
+                }
+              }}
+              onAddTag={(tag) => addTag(session.sessionId, tag)}
+              onRemoveTag={(tag) => removeTag(session.sessionId, tag)}
+            />
+          </div>
           <SessionActions
             sessionId={session.sessionId}
-            customName={getSessionName(session.sessionId) ?? null}
-            hasCustomName={hasCustomName(session.sessionId)}
-            tags={getSessionTags(session.sessionId)}
-            availableTags={getAllTags()}
+            customName={sessionCustomName ?? null}
+            hasCustomName={isSessionStarred}
             onSetName={setSessionName}
-            onAddTag={addTag}
-            onRemoveTag={removeTag}
           />
         </div>
 
@@ -236,12 +258,24 @@ export const SessionDetail: React.FC<SessionDetailProps> = ({ session, isUpdatin
           </>
         ) : (
           <>
-            <div className="px-4 py-3 border-b border-gray-800/60 bg-gray-900/30">
-              <span className="text-sm font-medium text-gray-400">
-                Inputs ({session.inputCount})
+            <div
+              className="px-4 py-3 border-b"
+              style={{
+                borderColor: 'var(--border-primary)',
+                backgroundColor: 'var(--bg-secondary)',
+              }}
+            >
+              <span
+                className="text-sm font-medium"
+                style={{ color: 'var(--text-secondary)' }}
+              >
+                {t('session.inputsWithCount', { count: session.inputCount })}
               </span>
-              <p className="text-xs text-gray-600 mt-1">
-                Full conversation not available. Only user inputs shown.
+              <p
+                className="text-xs mt-1"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                {t('session.partialDataNotice')}
               </p>
             </div>
             <RawInputsView

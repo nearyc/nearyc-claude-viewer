@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import type { Session } from '../types';
+import { useTranslation } from '../hooks/useTranslation';
 
 interface TrendData {
   label: string;
@@ -16,6 +17,8 @@ export const TrendChart: React.FC<TrendChartProps> = ({
   sessions,
   days = 14,
 }) => {
+  const { t } = useTranslation();
+
   const trendData = useMemo(() => {
     const now = new Date();
     const data: TrendData[] = [];
@@ -81,7 +84,7 @@ export const TrendChart: React.FC<TrendChartProps> = ({
     <div
       className="p-4 rounded-lg border"
       style={{
-        backgroundColor: 'rgba(30, 41, 59, 0.5)',
+        backgroundColor: 'var(--bg-secondary)',
         borderColor: 'var(--border-primary)',
       }}
     >
@@ -91,11 +94,11 @@ export const TrendChart: React.FC<TrendChartProps> = ({
           className="text-sm font-medium"
           style={{ color: 'var(--text-secondary)' }}
         >
-          会话趋势
+          {t('activity.trend')}
         </h3>
         <div className="flex items-center gap-4 text-xs" style={{ color: 'var(--text-muted)' }}>
-          <span>总计: {totalSessions}</span>
-          <span>平均: {averageCount.toFixed(1)}/天</span>
+          <span>{t('activity.total')}: {totalSessions}</span>
+          <span>{t('activity.average')}: {averageCount.toFixed(1)}/{t('time.day')}</span>
         </div>
       </div>
 
@@ -121,7 +124,7 @@ export const TrendChart: React.FC<TrendChartProps> = ({
             y1={padding.top + chartHeight * (1 - ratio)}
             x2={svgWidth - padding.right}
             y2={padding.top + chartHeight * (1 - ratio)}
-            stroke="rgba(255, 255, 255, 0.1)"
+            stroke="var(--border-secondary)"
             strokeDasharray="2,2"
           />
         ))}

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { useTranslation } from '../hooks/useTranslation';
 
 interface ResizablePanelProps {
   children: React.ReactNode;
@@ -130,7 +131,7 @@ export const ResizablePanel: React.FC<ResizablePanelProps> = ({
       <div
         className={`absolute top-0 bottom-0 w-1 cursor-col-resize transition-colors z-10
           ${direction === 'right' ? 'right-0' : 'left-0'}
-          ${isResizing ? 'bg-blue-500' : 'bg-transparent hover:bg-blue-500/50'}
+          ${isResizing ? 'bg-[var(--accent-blue)]' : 'bg-transparent hover:bg-[var(--accent-blue)]/50'}
         `}
         onMouseDown={handleMouseDown}
         style={{
@@ -162,6 +163,7 @@ export const CollapsiblePanel: React.FC<CollapsiblePanelProps> = ({
   onCollapseChange,
   collapseDirection = 'right',
 }) => {
+  const { t } = useTranslation();
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
 
   const toggleCollapse = useCallback(() => {
@@ -184,20 +186,28 @@ export const CollapsiblePanel: React.FC<CollapsiblePanelProps> = ({
       <button
         onClick={toggleCollapse}
         className="absolute top-4 z-20 flex items-center justify-center w-5 h-8
-                   bg-gray-700 hover:bg-gray-600 border border-gray-600
                    rounded transition-colors"
         style={{
           [collapseDirection === 'right' ? 'right' : 'left']: -2.5,
+          backgroundColor: 'var(--bg-tertiary)',
+          border: '1px solid var(--border-primary)',
         }}
-        title={isCollapsed ? '展开面板' : '折叠面板'}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)';
+        }}
+        title={isCollapsed ? t('panel.expand') : t('panel.collapse')}
       >
         <svg
-          className={`w-3 h-3 text-gray-400 transition-transform duration-200
+          className={`w-3 h-3 transition-transform duration-200
             ${isCollapsed
               ? (collapseDirection === 'right' ? '-rotate-180' : 'rotate-0')
               : (collapseDirection === 'right' ? 'rotate-0' : '-rotate-180')
             }
           `}
+          style={{ color: 'var(--text-muted)' }}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"

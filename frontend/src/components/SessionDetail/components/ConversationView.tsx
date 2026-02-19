@@ -2,6 +2,7 @@ import React from 'react';
 import { Sparkles } from 'lucide-react';
 import type { ChatMessage } from '../../../types';
 import { MessageItem } from './MessageItem';
+import { useTranslation } from '../../../hooks/useTranslation';
 
 interface ConversationViewProps {
   messages: ChatMessage[];
@@ -35,19 +36,21 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
   onToggleBookmark,
   onToggleCollapse,
 }) => {
+  const { t } = useTranslation();
+
   // Filter out system messages
   const filteredMessages = messages.filter(msg => !isSystemMessage(msg));
 
   return (
     <>
-      <div className="px-4 py-3 border-b border-gray-800/60 bg-gray-900/30 flex items-center justify-between">
-        <span className="text-sm font-medium text-gray-400">
-          Conversation ({filteredMessages.length} messages)
+      <div className="px-4 py-3 border-b border-[var(--bg-secondary)]/60 bg-[var(--bg-primary)]/30 flex items-center justify-between">
+        <span className="text-sm font-medium text-[var(--text-secondary)]">
+          {t('session.conversation')} ({filteredMessages.length} {t('session.messages').toLowerCase()})
         </span>
       {isUpdating && (
-        <span className="flex items-center gap-1 text-xs text-purple-400">
+        <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--accent-purple)' }}>
           <Sparkles className="w-3 h-3 animate-pulse" />
-          Receiving updates...
+          {t('session.receivingUpdates')}
         </span>
       )}
     </div>

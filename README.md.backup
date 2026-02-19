@@ -1,0 +1,1275 @@
+# Claude Viewer
+
+Claude Viewer 是一个集成的监控面板，用于查看 Claude Code 的 Sessions 和 Agent Teams 数据。
+
+![Dashboard 视图](docpng/image1.png)
+
+## 功能特性
+
+- **Dashboard 视图**: 概览所有 Sessions 和 Teams 的统计信息
+  - **会话活跃度热力图**: 90天活动可视化，颜色深浅表示活跃程度
+  - **会话趋势图**: 14天会话数量折线图，支持统计和平均值显示
+  - **实时活动时间线**: 混合显示 Session 和 Team 的最新活动
+  - **统计卡片**: 总会话数、项目数、团队数、消息数概览
+- **Sessions 视图**: 查看和管理所有对话会话
+  - 按项目筛选
+  - 搜索功能（支持全文搜索）
+  - 实时消息同步
+  - 关联 Team 信息查看
+  - **Session 自定义命名与收藏**: 为 Session 设置自定义名称，收藏后高亮显示，数据持久化到 `~/.claude/favorites/`
+  - **标签系统**: 为 Session 添加多个标签，支持按标签筛选，数据持久化存储
+  - **批量操作**: 多选 Session 进行批量删除、批量导出
+  - **智能筛选栏**: 保存和加载常用筛选条件
+  - **一键打开 Claude Code**: 在 Session Detail 中直接打开 PowerShell 并恢复会话
+  - **在 VS Code 中打开**: 一键调用 VS Code 插件，在编辑器内打开终端并恢复会话
+  - **复制 Session ID**: 快速复制 Session ID 到剪贴板
+  - **导出功能**: 支持导出为 Markdown、JSON、HTML 格式
+- **Projects 视图**: 按项目组织查看 Sessions
+- **Teams 视图**: 查看 Agent Teams 和成员消息
+  - Team 成员列表
+  - 成员消息面板
+  - 实时消息更新
+  - 关联 Session 跳转
+  - **Team 自定义命名与收藏**: 为 Team 设置自定义名称，收藏后高亮显示，数据持久化到 `~/.claude/favorites/`
+  - **优化的列宽布局**: Team 列表 25%、成员列表 20%、消息面板 55%
+- **主题系统**: 支持深色模式和护眼模式
+  - 一键切换主题，自动保存偏好
+  - CSS 变量驱动，无闪烁切换
+  - 护眼模式采用暖色调，减轻眼部疲劳
+- **多语言支持**: 内置中文和英文界面
+  - 自动检测浏览器语言
+  - 一键切换语言，实时生效
+  - 翻译键系统，易于扩展新语言
+- **全局命令面板 (Cmd+K)**: 快速跳转、搜索和执行命令
+- **深度链接**: URL hash 路由支持，可分享特定视图链接
+- **可折叠面板布局**: 支持拖拽调整面板宽度
+- **删除功能**: 支持删除 Session 和 Team
+  - 确认对话框防止误操作
+  - 删除后自动刷新列表
+  - WebSocket 实时同步到其他客户端
+- **强制刷新**: 刷新按钮强制从磁盘重新读取数据
+  - 无需重启后端即可检测新对话
+  - 自动清除缓存并重新加载
+
+## 项目结构
+
+```
+claude-viewer/
+├── backend/                 # 后端服务
+│   ├── src/
+│   │   ├── index.ts        # 服务器入口
+│   │   ├── server.ts       # 服务器配置
+│   │   ├── routes/         # API 路由
+│   │   │   ├── sessions.ts # Sessions API
+│   │   │   ├── teams.ts    # Teams API
+│   │   │   ├── projects.ts # Projects API
+│   │   │   ├── stats.ts    # 统计 API（活动、趋势、使用）
+│   │   │   ├── search.ts   # 搜索 API
+│   │   │   └── favorites.ts # 收藏 API（Session/Team 名称、标签、筛选器）
+│   │   ├── services/       # 业务逻辑服务
+│   │   │   ├── sessions/           # Sessions 模块化服务
+│   │   │   │   ├── PathUtils.ts        # 路径处理工具
+│   │   │   │   ├── SessionCache.ts     # 缓存管理
+│   │   │   │   ├── SessionLoader.ts    # 会话加载器
+│   │   │   │   ├── ProjectScanner.ts   # 项目扫描器
+│   │   │   │   ├── ConversationLoader.ts # 对话加载器
+│   │   │   │   └── SessionRepository.ts  # 会话存储库
+│   │   │   ├── sessionsService.ts  # Sessions 主服务（组合模式）
+│   │   │   ├── teamsService.ts     # Teams 数据服务
+│   │   │   ├── projectsService.ts  # Projects 数据服务
+│   │   │   ├── statsService.ts     # 统计服务
+│   │   │   ├── searchService.ts    # 全文搜索服务
+│   │   │   ├── codeStatsService.ts # 代码产出统计服务
+│   │   │   ├── activityService.ts  # 实时活动流服务
+│   │   │   └── favoritesService.ts # 收藏数据持久化服务
+│   │   ├── utils/          # 工具函数
+│   │   │   ├── apiResponse.ts    # 统一 API 响应格式
+│   │   │   ├── pathUtils.ts      # 路径处理
+│   │   │   └── dateUtils.ts      # 日期处理
+│   │   └── types/          # 类型定义
+│   └── package.json
+├── frontend/               # 前端应用
+│   ├── src/
+│   │   ├── main.tsx        # 应用入口
+│   │   ├── App.tsx         # 主应用组件
+│   │   ├── contexts/       # React Context
+│   │   │   ├── ThemeContext.tsx    # 主题状态管理
+│   │   │   └── I18nContext.tsx     # 国际化状态管理
+│   │   ├── i18n/           # 国际化
+│   │   │   ├── types.ts            # 翻译键类型定义
+│   │   │   └── locales/            # 语言包
+│   │   │       ├── zh-CN.ts        # 中文翻译
+│   │   │       ├── en.ts           # 英文翻译
+│   │   │       └── index.ts        # 语言包导出
+│   │   ├── styles/         # 样式
+│   │   │   └── themes/             # 主题配置
+│   │   │       ├── dark.ts         # 深色主题
+│   │   │       ├── eyeCare.ts      # 护眼主题
+│   │   │       └── index.ts        # 主题导出
+│   │   ├── components/     # React 组件
+│   │   │   ├── Sidebar.tsx       # 侧边栏导航
+│   │   │   ├── Header.tsx        # 顶部标题栏
+│   │   │   ├── Layout.tsx        # 可调整布局
+│   │   │   ├── Dashboard.tsx     # 仪表盘（含热力图、趋势图、时间线）
+│   │   │   ├── SessionList.tsx   # Session 列表（含批量操作、智能筛选）
+│   │   │   ├── SessionDetail/    # Session 详情组件目录
+│   │   │   │   ├── components/       # 子组件
+│   │   │   │   │   ├── SessionHeader.tsx   # 会话头部
+│   │   │   │   │   ├── SessionMeta.tsx     # 元数据展示
+│   │   │   │   │   ├── SessionActions.tsx  # 操作按钮
+│   │   │   │   │   ├── NavigationBar.tsx   # 导航栏
+│   │   │   │   │   ├── SearchBar.tsx       # 搜索栏
+│   │   │   │   │   ├── BookmarksList.tsx   # 书签列表
+│   │   │   │   │   ├── ConversationView.tsx # 对话视图
+│   │   │   │   │   └── RawInputsView.tsx   # 原始输入视图
+│   │   │   │   ├── hooks/            # 自定义 Hooks
+│   │   │   │   │   ├── useBookmarks.ts     # 书签状态管理
+│   │   │   │   │   ├── useSearch.ts        # 搜索功能
+│   │   │   │   │   └── useScrollNavigation.ts # 滚动导航
+│   │   │   │   └── SessionDetail.tsx # 主组件（精简版）
+│   │   │   ├── TeamList.tsx      # Team 列表
+│   │   │   ├── MemberList.tsx    # 成员列表
+│   │   │   ├── MessagePanel.tsx  # 消息面板
+│   │   │   ├── MessageItem.tsx   # 单个消息组件（智能渲染）
+│   │   │   ├── CommandPalette.tsx # 全局命令面板 (Cmd+K)
+│   │   │   ├── ExportDialog.tsx   # 导出对话框
+│   │   │   ├── TagSelector.tsx    # 标签选择器
+│   │   │   ├── SmartFilterBar.tsx # 智能筛选栏
+│   │   │   ├── BatchActionBar.tsx # 批量操作栏
+│   │   │   ├── ActivityHeatmap.tsx # 活动热力图
+│   │   │   ├── TrendChart.tsx     # 趋势图
+│   │   │   ├── ActivityTimeline.tsx # 活动时间线
+│   │   │   ├── ThemeSwitcher.tsx  # 主题切换按钮
+│   │   │   └── LanguageSwitcher.tsx # 语言切换按钮
+│   │   ├── hooks/          # 自定义 Hooks
+│   │   │   ├── useWebSocket.ts    # WebSocket 连接
+│   │   │   ├── useSessions.ts     # Sessions 数据
+│   │   │   ├── useTeams.ts        # Teams 数据
+│   │   │   ├── useSessionNames.ts # Session 自定义名称管理
+│   │   │   ├── useTeamNames.ts    # Team 自定义名称管理
+│   │   │   ├── useSessionTags.ts  # Session 标签管理
+│   │   │   ├── useUrlState.ts     # URL hash 状态管理
+│   │   │   ├── useCommandPalette.ts # 命令面板状态
+│   │   │   └── useSavedFilters.ts # 保存的筛选条件
+│   │   └── types/          # 类型定义
+│   └── package.json
+├── start-app.ps1          # PowerShell 启动脚本
+├── package.json           # 根目录配置
+└── README.md              # 项目说明
+```
+
+## 快速开始
+
+### 环境要求
+
+- Node.js >= 18.0.0
+- npm >= 9.0.0
+- PowerShell (Windows) 或 bash (Linux/Mac)
+
+### 安装依赖
+
+```bash
+# 安装所有依赖（根目录 + backend + frontend）
+npm run install:all
+
+# 或者分别安装
+cd backend && npm install
+cd ../frontend && npm install
+```
+
+### 启动应用
+
+```bash
+# 启动前后端（推荐）
+npm run dev
+
+# 或者分别启动
+npm run dev:backend   # 启动后端
+cd frontend && npm run dev  # 启动前端
+```
+
+应用启动后：
+- 前端: http://localhost:5173
+- 后端: http://localhost:13927
+
+### 构建生产版本
+
+```bash
+# 构建前端
+npm run build
+
+# 构建后端
+npm run build:backend
+```
+
+### 运行测试
+
+```bash
+# 后端测试 (Jest)
+cd backend
+npm test
+npm run test:coverage  # 覆盖率报告
+
+# 前端测试 (Vitest)
+cd frontend
+npm test
+npm run test:coverage  # 覆盖率报告
+```
+
+**测试覆盖率目标**: 80%+
+
+## 配置
+
+### 环境变量
+
+### 后端环境变量
+
+| 变量名 | 默认值 | 说明 |
+|--------|--------|------|
+| `PORT` | 13927 | 服务器端口 |
+| `HISTORY_FILE_PATH` | ~/.claude/history.jsonl | Sessions 历史文件路径 |
+| `TEAMS_DIR` | ~/.claude/teams | Teams 配置目录 |
+| `CORS_ORIGIN` | http://localhost:5173 | 前端跨域地址 |
+
+### 前端环境变量
+
+| 变量名 | 默认值 | 说明 |
+|--------|--------|------|
+| `VITE_WS_URL` | http://localhost:13927 | WebSocket 服务器地址 |
+
+创建 `frontend/.env` 文件：
+```bash
+VITE_WS_URL=http://localhost:13927
+```
+
+在 Windows PowerShell 中设置后端变量：
+```powershell
+$env:PORT=13927
+$env:HISTORY_FILE_PATH="C:\Users\YourName\.claude\history.jsonl"
+$env:TEAMS_DIR="C:\Users\YourName\.claude\teams"
+```
+
+在 Linux/Mac bash 中设置：
+```bash
+export PORT=13927
+export HISTORY_FILE_PATH="~/.claude/history.jsonl"
+export TEAMS_DIR="~/.claude/teams"
+```
+
+## API 接口
+
+### Sessions API
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /api/health | 健康检查 |
+| GET | /api/sessions | 获取所有 Sessions |
+| GET | /api/sessions?refresh=true | 强制刷新，重新读取 history.jsonl |
+| GET | /api/sessions?limit=N | 获取最近 N 个 Sessions |
+| GET | /api/sessions?project=PATH | 按项目筛选 Sessions |
+| GET | /api/sessions?search=QUERY | 搜索 Sessions |
+| GET | /api/sessions?tag=TAG | 按标签筛选 Sessions |
+| GET | /api/sessions/:sessionId | 获取 Session 详情 |
+| GET | /api/sessions/:sessionId/full | 获取 Session 详情（含完整对话） |
+| DELETE | /api/sessions/:sessionId | 删除指定 Session |
+| GET | /api/sessions/projects/all | 获取所有项目列表 |
+
+### Teams API
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /api/teams | 获取所有 Teams |
+| GET | /api/teams?refresh=true | 强制刷新，重新读取 teams 目录 |
+| GET | /api/teams/:teamId | 获取 Team 详情 |
+| GET | /api/teams/:teamId?messages=true | 获取 Team 详情（含所有成员消息） |
+| GET | /api/teams/:teamId/messages | 获取 Team 所有消息 |
+| DELETE | /api/teams/:teamId | 删除指定 Team |
+| GET | /api/teams/:teamId/messages?member=:name | 获取指定成员消息 |
+| POST | /api/execute | 执行 shell 命令（打开 Claude Code） |
+
+### Stats API
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /api/stats/activity?days=N | 获取活动统计（热力图数据） |
+| GET | /api/stats/projects/:path/trends | 获取项目趋势数据 |
+| GET | /api/stats/usage | 获取使用统计摘要 |
+| GET | /api/stats/code-output | 获取代码产出统计 |
+
+### Search API
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /api/search?q=query&type=session | 全文搜索 Sessions |
+
+### Execute API
+
+用于在前端触发执行 shell 命令，如打开 PowerShell 并启动 Claude Code。
+
+**请求**:
+```json
+{
+  "command": "powershell.exe",
+  "args": ["-NoExit", "-Command", "cd G:\\vscodeTest; claude --dangerously-skip-permissions --resume <session_id>"]
+}
+```
+
+**响应**:
+```json
+{
+  "success": true,
+  "message": "Command executed successfully"
+}
+```
+
+### 消息格式
+
+后端自动将 inbox 文件格式转换为统一的消息格式：
+
+**Inbox 文件格式**（原始）：
+```json
+{
+  "from": "sender-name",
+  "text": "message content",
+  "timestamp": "2026-02-15T12:24:47.130Z",
+  "color": "blue",
+  "read": false,
+  "summary": "message summary"
+}
+```
+
+**API 返回格式**（转换后）：
+```json
+{
+  "id": "team-member-0",
+  "type": "message",
+  "sender": "sender-name",
+  "recipient": "member-name",
+  "content": "message content",
+  "timestamp": 1771158287130,
+  "metadata": {
+    "color": "blue",
+    "read": false,
+    "summary": "message summary"
+  }
+}
+```
+
+### 消息类型
+
+| 类型 | 说明 | 显示方式 |
+|------|------|----------|
+| `idle_notification` | Agent 状态通知 | 紧凑行布局，绿色图标 |
+| `status_update` | 状态更新 | 带状态文本的卡片 |
+| `task_completed` | 任务完成 | 任务卡片 |
+| `shutdown_request` | 关闭请求 | 红色警告卡片 |
+| `shutdown_response` | 关闭响应 | 系统消息 |
+| `message` | 普通消息 | 标准消息卡片 |
+
+## WebSocket 事件
+
+### 客户端接收事件
+
+| 事件名 | 说明 | 数据格式 |
+|--------|------|----------|
+| `sessions:initial` | 初始 Sessions 数据 | `{ sessions: Session[] }` |
+| `sessions:updated` | Sessions 数据更新 | `{ sessions: Session[] }` |
+| `session:data` | 单个 Session 数据 | `Session` |
+| `session:updated` | Session 更新 | `{ session: Session }` |
+| `projects:initial` | 初始项目数据 | `{ projects: Project[] }` |
+| `projects:updated` | 项目数据更新 | `{ projects: Project[] }` |
+| `teams:initial` | 初始 Teams 数据 | `{ teams: Team[] }` |
+| `teams:updated` | Teams 列表更新 | `{ teams: Team[] }` |
+| `team:data` | 完整 Team 数据（含成员和消息） | `TeamWithInboxes` |
+| `team:messages` | 团队消息更新 | `{ teamId: string, messages: Message[] }` |
+| `stats:updated` | 统计数据更新 | `DashboardStats` |
+| `activity:stream` | 实时活动流 | `ActivityItem[]` |
+
+### 客户端发送事件
+
+| 事件名 | 说明 | 参数 |
+|--------|------|------|
+| `session:subscribe` | 订阅 Session 更新 | `sessionId: string` |
+| `session:unsubscribe` | 取消订阅 Session | `sessionId: string` |
+| `team:subscribe` | 订阅 Team 更新 | `teamId: string` |
+| `team:unsubscribe` | 取消订阅 Team | `teamId: string` |
+| `activity:subscribe` | 订阅活动流 | - |
+| `activity:unsubscribe` | 取消订阅活动流 | - |
+
+## 视图切换
+
+### Dashboard 视图
+- 显示整体统计信息（总会话、项目、团队、消息数）
+- **会话活跃度热力图**: 90天日历热力图，颜色表示活跃程度
+- **会话趋势图**: 14天折线图，显示每日会话数量趋势
+- **实时活动时间线**: 按时间分组显示最新 Session 和 Team 活动
+- 最近活跃的 Sessions 和 Teams
+- 快速跳转到其他视图
+
+### Sessions 视图
+
+![Sessions 视图](docpng/image2.png)
+
+- 左侧：Session 列表
+  - 支持项目筛选和搜索
+  - **批量选择**: 多选 Session 进行批量操作
+  - **智能筛选**: 保存和加载常用筛选条件
+  - **标签筛选**: 按标签过滤 Session
+  - **收藏筛选开关**: 点击右上角 "全部/已收藏" 按钮，只显示已收藏的 Session
+  - **收藏高亮**: 已收藏的 Session 显示黄色星标和边框
+- 右侧：Session 详情
+  - 显示 Session 基本信息（ID、项目、时间）
+  - **自定义命名**: 点击 "收藏" 按钮或星标，输入自定义名称
+  - **标签管理**: 添加、删除标签
+  - **导出功能**: 导出为 Markdown、JSON、HTML
+  - **在 Claude Code 中打开**: 一键打开 PowerShell 并恢复当前 Session
+  - **复制 Session ID**: 一键复制 Session ID 到剪贴板
+  - 显示关联 Team 信息
+
+### Projects 视图
+- 项目列表
+- 按项目筛选 Sessions
+
+### Teams 视图
+
+![Teams 视图](docpng/image3.png)
+
+- 左侧：Team 列表 (25% 宽度)
+  - 显示最后活动时间（如 2h ago）
+  - 按最近活动排序
+  - **收藏筛选开关**: 点击右上角 "全部/已收藏" 按钮，只显示已收藏的 Team
+  - **收藏高亮**: 已收藏的 Team 显示黄色星标和边框
+  - **自定义命名**: 点击编辑按钮，输入自定义名称
+- 中间：成员列表 (20% 宽度)
+- 右侧：消息面板 (55% 宽度)
+- 消息中可跳转到关联 Session
+
+## 全局命令面板 (Cmd+K)
+
+按 `Cmd+K` (Mac) 或 `Ctrl+K` (Windows/Linux) 打开命令面板：
+
+| 命令类别 | 命令 | 说明 |
+|----------|------|------|
+| 导航 | Go to Dashboard | 跳转到 Dashboard |
+| 导航 | Go to Sessions | 跳转到 Sessions 视图 |
+| 导航 | Go to Projects | 跳转到 Projects 视图 |
+| 导航 | Go to Teams | 跳转到 Teams 视图 |
+| 操作 | Toggle Theme | 切换主题 |
+| 操作 | Switch Language | 切换语言 |
+| 操作 | Refresh Data | 刷新数据 |
+| 操作 | Export Current Session | 导出当前 Session |
+| 搜索 | Search Sessions... | 搜索 Sessions |
+| 搜索 | Search Teams... | 搜索 Teams |
+
+## 深度链接
+
+支持 URL hash 路由，可分享特定视图：
+
+| URL | 说明 |
+|-----|------|
+| `/#/dashboard` | Dashboard 视图 |
+| `/#/sessions` | Sessions 列表 |
+| `/#/sessions/:id` | 特定 Session 详情 |
+| `/#/projects` | Projects 视图 |
+| `/#/teams` | Teams 列表 |
+| `/#/teams/:id` | 特定 Team 详情 |
+
+## 开发指南
+
+### 添加新组件
+
+1. 在 `frontend/src/components/` 下创建组件目录
+2. 在 `frontend/src/types/index.ts` 中添加类型定义
+3. 在 `frontend/src/hooks/` 中添加自定义 hooks（如需要）
+4. 在 `App.tsx` 中引入和使用组件
+
+### 添加新 API
+
+1. 在 `backend/src/routes/` 下创建或修改路由文件
+2. 在 `backend/src/services/` 中添加业务逻辑
+3. 在 `backend/src/types/index.ts` 中添加类型定义
+4. 在 `server.ts` 中注册路由
+
+## 数据流说明
+
+### Sessions 数据流
+
+```
+~/.claude/history.jsonl
+    ↓ (FileWatcher)
+backend/src/services/sessionsService.ts
+    ↓ (解析转换)
+API /api/sessions
+    ↓ (HTTP)
+frontend/src/hooks/useSessions.ts
+    ↓ (State)
+Sessions 视图
+```
+
+### Teams 数据流
+
+```
+~/.claude/teams/{team}/config.json
+    ↓ (FileWatcher)
+backend/src/services/teamsService.ts
+    ↓ (解析转换)
+API /api/teams
+    ↓ (HTTP/WebSocket)
+frontend/src/hooks/useTeams.ts
+    ↓ (State)
+Teams 视图
+```
+
+### 消息数据流
+
+```
+~/.claude/teams/{team}/inboxes/{member}.json
+    ↓ (FileWatcher)
+backend/src/services/teamsService.ts
+    ↓ (格式转换: from→sender, text→content, ISO→timestamp)
+API /api/teams/:id?messages=true
+    ↓ (HTTP/WebSocket)
+frontend/src/components/MessageItem.tsx
+    ↓ (智能渲染)
+消息面板 (不同类型不同UI)
+```
+
+### 统计数据流
+
+```
+~/.claude/history.jsonl
+    ↓ (FileWatcher)
+backend/src/services/statsService.ts
+    ↓ (统计分析)
+API /api/stats/activity, /api/stats/usage
+    ↓ (HTTP/WebSocket)
+frontend/src/components/ActivityHeatmap.tsx
+frontend/src/components/TrendChart.tsx
+Dashboard 视图
+```
+
+## 故障排除
+
+### 端口被占用
+
+如果启动时提示端口被占用，可以修改环境变量：
+```powershell
+$env:PORT=13928  # 后端使用其他端口
+```
+
+### 文件监控不工作
+
+确保 `HISTORY_FILE_PATH` 和 `TEAMS_DIR` 指向正确的路径，并且应用有读取权限。
+
+### WebSocket 连接失败
+
+检查 `CORS_ORIGIN` 是否设置为正确的前端地址。
+
+### 消息显示为 "Msg" 或空白
+
+**原因**: Claude Code 的 inbox 文件使用 `from`/`text`/`timestamp`(string) 格式，而前端期望 `sender`/`content`/`timestamp`(number) 格式。
+
+**解决**: 后端已自动进行格式转换（`teamsService.ts` 中的 `getMessages()` 方法）。如果仍有问题，检查：
+1. 后端是否正常启动
+2. inbox 文件是否为有效的 JSON 格式
+3. 浏览器控制台是否有错误信息
+
+## 更新日志
+
+### 新功能 (2026-02-19) - 主题系统与国际化
+
+#### 1. 主题系统
+
+**功能描述**: 支持深色模式和护眼模式一键切换，无闪烁过渡。
+
+**实现细节**:
+- CSS 变量驱动主题系统，全局样式统一管理
+- 内联脚本在 HTML 渲染前应用主题，消除白屏闪烁
+- 主题偏好持久化到 `localStorage`
+- 新增 `ThemeContext` 管理主题状态
+- 新增 `ThemeSwitcher` 组件用于快速切换
+
+**主题列表**:
+| 主题 | ID | 描述 |
+|------|-----|------|
+| 深色模式 | `dark` | `#0f172a` 深蓝灰背景，适合夜间 |
+| 护眼模式 | `eyeCare` | `#1a1814` 暖色调背景，降低蓝光 |
+
+**使用**: 点击顶部导航栏主题图标或使用 `Cmd/Ctrl + K` 打开命令面板切换
+
+#### 2. 国际化支持
+
+**功能描述**: 内置中文和英文界面，自动检测浏览器语言偏好。
+
+**实现细节**:
+- React Context + 自定义 `useTranslation` Hook
+- 翻译键类型系统，TypeScript 智能提示
+- 支持变量插值（如 `{{count}}`）
+- 语言偏好持久化到 `localStorage`
+- 新增 `I18nContext` 管理语言状态
+- 新增 `LanguageSwitcher` 组件用于切换语言
+
+**支持语言**:
+| 语言 | 代码 | 描述 |
+|------|------|------|
+| 简体中文 | `zh-CN` | 默认语言 |
+| 英文 | `en` | English |
+
+**翻译键数量**: 250+ 个翻译键覆盖全部界面文本
+
+**扩展支持**:
+- 添加新主题：在 `styles/themes/` 创建主题文件并注册
+- 添加新翻译：在 `i18n/locales/` 编辑对应语言文件
+- 添加新语言：创建语言文件并在 `locales/index.ts` 注册
+
+### 新功能 (2026-02-18) - 收藏功能持久化
+
+#### 1. 收藏数据持久化存储
+**功能描述**: 将 Session 收藏、Team 收藏、Session 标签、保存的筛选器等数据从浏览器 localStorage 迁移到后端文件存储，解决数据丢失问题。
+
+**实现细节**:
+- 新增 `favoritesService.ts` 服务，管理 `~/.claude/favorites/favorites.json` 文件
+- 新增 `/api/favorites` REST API 端点，提供完整的 CRUD 操作
+- 支持 Session 名称收藏、Team 名称收藏、Session 标签、保存的筛选器
+- 前端组件从 API 加载数据，支持乐观更新
+
+**数据迁移**:
+- 首次启动时自动从 localStorage 迁移旧数据到文件存储
+- 迁移完成后自动清理 localStorage
+- 如果 API 不可用，自动降级到 localStorage 作为后备
+
+**API 端点**:
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /api/favorites/session-names | 获取所有 Session 收藏名称 |
+| POST | /api/favorites/session-names/:id | 设置 Session 收藏名称 |
+| DELETE | /api/favorites/session-names/:id | 删除 Session 收藏名称 |
+| GET | /api/favorites/team-names | 获取所有 Team 收藏名称 |
+| POST | /api/favorites/team-names/:id | 设置 Team 收藏名称 |
+| DELETE | /api/favorites/team-names/:id | 删除 Team 收藏名称 |
+| GET | /api/favorites/session-tags | 获取所有 Session 标签 |
+| POST | /api/favorites/session-tags/:id | 设置 Session 标签 |
+| GET | /api/favorites/saved-filters | 获取所有保存的筛选器 |
+| POST | /api/favorites/saved-filters | 创建新的筛选器 |
+| PUT | /api/favorites/saved-filters/:id | 更新筛选器 |
+| DELETE | /api/favorites/saved-filters/:id | 删除筛选器 |
+
+### 新功能 (2026-02-17) - 可视化仪表盘与全局交互
+
+#### 1. 会话活跃度热力图
+**功能描述**: Dashboard 新增 90 天日历热力图，直观展示每日会话活跃程度。
+
+**实现细节**:
+- 新增 `ActivityHeatmap.tsx` 组件，纯 CSS/SVG 实现
+- 5 级颜色深浅表示活跃程度（无/低/中/高/极高）
+- 悬停显示具体日期和会话数
+- 显示总会话数、活跃天数、单日最高会话数统计
+
+**使用**: 在 Dashboard 页面查看，自动计算最近 90 天数据
+
+#### 2. 会话趋势图
+**功能描述**: Dashboard 新增 14 天折线图，展示会话数量变化趋势。
+
+**实现细节**:
+- 新增 `TrendChart.tsx` 组件，纯 SVG 实现
+- 显示总计会话数和每日平均值
+- 带渐变填充的平滑折线
+- 网格线和坐标轴标签
+
+**使用**: 在 Dashboard 页面查看趋势分析
+
+#### 3. 实时活动时间线
+**功能描述**: Dashboard 新增混合活动时间线，按时间分组显示 Session 和 Team 活动。
+
+**实现细节**:
+- 新增 `ActivityTimeline.tsx` 组件
+- 按"今天/昨天/本周/更早"分组
+- Session 显示为蓝色消息图标，Team 显示为紫色用户图标
+- 显示相对时间（如 "2h ago"）
+
+#### 4. 全局命令面板 (Cmd+K)
+**功能描述**: 按 Cmd+K 打开命令面板，快速执行导航和操作。
+
+**实现细节**:
+- 新增 `CommandPalette.tsx` 组件
+- 支持 31+ 个命令（导航、搜索、操作）
+- 键盘导航（上下箭头、Enter、Escape）
+- 模糊搜索匹配命令
+
+**快捷键**:
+- `Cmd/Ctrl + K`: 打开命令面板
+- `Escape`: 关闭命令面板
+- `↑/↓`: 导航命令列表
+- `Enter`: 执行选中命令
+
+#### 5. 深度链接 (URL Hash 路由)
+**功能描述**: 支持通过 URL hash 分享特定视图链接。
+
+**实现细节**:
+- 新增 `useUrlState.ts` hook 管理 URL hash 状态
+- 支持 `/#/sessions/:id`, `/#/teams/:id` 等格式
+- 浏览器前进/后退按钮正常工作
+
+#### 6. 可折叠面板布局
+**功能描述**: 支持拖拽调整面板宽度，适应不同屏幕和内容需求。
+
+**实现细节**:
+- 修改 `Layout.tsx` 支持面板宽度调整
+- 拖拽调整左侧面板宽度
+- 面板可完全折叠/展开
+
+#### 7. 会话导出功能
+**功能描述**: 支持将 Session 导出为 Markdown、JSON、HTML 格式。
+
+**实现细节**:
+- 新增 `ExportDialog.tsx` 组件
+- 支持 Markdown（带格式）、JSON（原始数据）、HTML（网页）格式
+- Session Detail 头部添加导出按钮
+
+**使用**: 在 Session Detail 中点击导出图标，选择格式下载
+
+#### 8. 标签系统
+**功能描述**: 为 Session 添加标签，支持按标签筛选。
+
+**实现细节**:
+- 新增 `useSessionTags.ts` hook，使用 API 持久化到 `~/.claude/favorites/`
+- 新增 `TagSelector.tsx` 组件
+- 支持添加、删除多个标签
+- Session List 支持按标签筛选
+- 数据持久化，跨浏览器同步
+
+**使用**: 在 Session Detail 中点击添加标签，选择或输入标签名
+
+#### 9. 批量操作
+**功能描述**: 多选 Session 进行批量删除或导出。
+
+**实现细节**:
+- 修改 `SessionList.tsx` 添加多选功能
+- 新增 `BatchActionBar.tsx` 批量操作栏
+- 支持全选/取消全选、批量删除、批量导出
+
+**使用**: 在 Session List 中点击复选框选择多个 Session，使用底部操作栏执行批量操作
+
+#### 10. 智能筛选栏
+**功能描述**: 保存和加载常用筛选条件，快速切换不同视图。
+
+**实现细节**:
+- 新增 `SmartFilterBar.tsx` 组件
+- 新增 `useSavedFilters.ts` hook，使用 API 持久化到 `~/.claude/favorites/`
+- 支持保存当前筛选条件
+- 一键应用已保存的筛选
+- 数据持久化，跨浏览器同步
+
+#### 11. 增强搜索功能
+**功能描述**: 全文搜索 Session 内容，支持按类型筛选。
+
+**实现细节**:
+- 新增 `searchService.ts` 服务
+- 新增 `/api/search` API 端点
+- 支持搜索 Session 消息内容
+- 搜索结果高亮显示
+
+#### 12. 代码产出统计
+**功能描述**: 统计代码产出量，包括代码块数量、行数等。
+
+**实现细节**:
+- 新增 `codeStatsService.ts` 服务
+- 解析消息中的代码块（```language...```）
+- 统计各语言代码行数
+- 新增 `/api/stats/code-output` API
+
+### 新功能 (2026-02-16)
+
+#### 1. Session 自定义命名与收藏
+**功能描述**: 为 Session 设置自定义名称，方便识别和管理。
+
+**实现细节**:
+- 新增 `useSessionNames.ts` hook，使用 API 持久化到 `~/.claude/favorites/`
+- Session Detail 头部添加自定义名称输入框
+- 支持点击星标或 "收藏" 按钮设置名称
+- 已收藏的 Session 在列表中显示黄色星标和边框
+- 支持键盘快捷键：Enter 保存，Escape 取消
+- 数据持久化，跨浏览器同步
+
+**使用方法**:
+1. 在 Session Detail 中点击 "收藏" 按钮
+2. 输入自定义名称并点击保存
+3. 在 Session 列表中可以看到黄色高亮的收藏标记
+
+#### 2. 收藏筛选功能
+**功能描述**: 在 Session 列表中添加筛选开关，只显示已收藏的 Session。
+
+**实现细节**:
+- 在 Session 列表头部添加 "全部/已收藏" 切换按钮
+- 使用 Star 图标区分状态
+- 收藏 Session 在列表中优先显示（排序靠前）
+
+#### 3. 一键打开 Claude Code
+**功能描述**: 在 Session Detail 中添加按钮，一键打开 PowerShell 并恢复当前 Session。
+
+**实现细节**:
+- 后端新增 `/api/execute` API，支持执行 shell 命令
+- Session Detail 头部添加 "在 Claude Code 中打开" 按钮
+- 自动执行：`cd <project_path> && claude --dangerously-skip-permissions --resume <session_id>`
+- 使用 Terminal 图标按钮，带加载状态反馈
+
+#### 4. 在 VS Code 中打开
+**功能描述**: 在 Session Detail 中添加按钮，一键调用 VS Code 插件在编辑器内打开终端并恢复会话。
+
+**实现细节**:
+- 使用 VS Code URI Scheme (`vscode://your-name.claude-code-launcher/open`) 触发扩展
+- 自动传递 `path` 和 `session` 参数到 VS Code 扩展
+- VS Code 扩展在编辑器区域创建终端并运行 `claude --resume <session_id>`
+- 需要先安装 `claude-code-launcher` VS Code 扩展
+
+**使用方法**:
+1. 确保已安装 `vscode-claude-code-launcher` 扩展
+2. 在 Session Detail 中点击 "在 VS Code 中打开" 按钮（蓝色图标）
+3. VS Code 会自动打开并进入对应工作目录
+4. 终端会在编辑器区域打开，自动恢复当前 Session
+
+#### 5. 复制 Session ID
+**功能描述**: 一键复制 Session ID 到剪贴板。
+
+**实现细节**:
+- 使用 Clipboard API 实现复制功能
+- 点击后显示 Check 图标表示复制成功
+- 2 秒后自动恢复 Copy 图标
+
+#### 6. Team 自定义命名与收藏
+**功能描述**: 为 Team 设置自定义名称，方便识别和管理。
+
+**实现细节**:
+- 新增 `useTeamNames.ts` hook，使用 API 持久化到 `~/.claude/favorites/`
+- Team List 中每个 Team 显示编辑按钮
+- 支持点击星标或编辑按钮设置自定义名称
+- 已收藏的 Team 在列表中显示黄色星标和边框
+- 收藏 Team 按最近活动时间排序，优先显示
+- 支持 "全部/已收藏" 筛选开关
+- 数据持久化，跨浏览器同步
+
+**使用方法**:
+1. 在 Teams 列表中点击编辑按钮
+2. 输入自定义名称并点击保存（或按 Enter）
+3. 在 Team 列表中可以看到黄色高亮的收藏标记
+4. 点击 "已收藏" 开关只显示收藏的 Team
+
+#### 6. Teams 视图布局优化
+**功能描述**: 调整 Teams 视图的列宽分配，增加消息面板空间。
+
+**实现细节**:
+- Team 列表: 25%（原 33%）
+- 成员列表: 20%（原 33%）
+- 消息面板: 55%（原 33%）
+
+#### 7. Session/Team 删除功能
+**功能描述**: 支持删除 Session 和 Team，带确认对话框。
+
+**实现细节**:
+- Session List 和 Team List 中添加删除按钮（悬停显示）
+- 点击删除弹出确认对话框，防止误操作
+- 删除成功后自动刷新列表
+- 支持 WebSocket 实时同步删除状态到其他客户端
+
+**使用方法**:
+1. 在 Session/Team 列表中悬停到要删除的项
+2. 点击右侧出现的垃圾桶图标
+3. 在确认对话框中点击"删除"确认
+
+#### 8. 强制刷新功能
+**功能描述**: 刷新按钮支持强制从磁盘重新读取数据，无需重启后端。
+
+**实现细节**:
+- 后端 API 支持 `?refresh=true` 参数
+- 调用时清除缓存并重新读取 `history.jsonl` 或 teams 目录
+- 前端刷新按钮自动带上此参数
+- WebSocket 自动广播更新到所有客户端
+
+**API 更新**:
+- `GET /api/sessions?refresh=true` - 强制刷新 Sessions
+- `GET /api/teams?refresh=true` - 强制刷新 Teams
+
+### 已修复的问题
+
+#### 1. 点击 Team Member 后页面空白
+**问题**: 点击 Agent Teams 的成员后，整个页面变成空白（蓝色背景）。
+
+**原因**: `MessageItem.tsx` 中的 `shouldCollapse()` 和 `getPreviewText()` 函数在处理 `undefined` 的消息内容时会抛出错误。
+
+**修复**:
+- `MessageItem.tsx`: 添加空值检查 `if (!text) return false;`
+- 更新函数签名支持 `string | undefined` 类型
+
+#### 2. 消息显示为 "Msg" 或格式不正确
+**问题**: 消息面板显示大量 "Msg" 标签，而非正确的消息类型和内容。
+
+**原因**: 后端 inbox 文件格式 (`from`/`text`/`timestamp`(string)) 与前端期望格式 (`sender`/`content`/`timestamp`(number)) 不匹配。
+
+**修复**:
+- `teamsService.ts`: 添加 `RawInboxMessage` 接口和格式转换逻辑
+- `types/index.ts`: 添加 `status_update` 消息类型
+- 自动转换字段名、时间戳格式，并检测消息类型
+
+#### 3. Agent Teams 列表未显示
+**问题**: Teams 视图下没有显示任何团队。
+
+**原因**: `TeamConfig` 类型使用了错误的字段名 `team_name`，而实际 config.json 使用 `name`。
+
+**修复**: 更新 `types/index.ts` 中的类型定义和 `teamsService.ts` 中的字段映射。
+
+#### 6. Agent Teams 无法读取无 config.json 的团队
+**问题**: 即使 `~/.claude/teams/` 目录下有团队数据，Teams 视图显示 0 个团队。
+
+**原因**: 代码严格要求每个团队必须有 `config.json` 文件，但 Claude Code 创建的许多团队只有 `inboxes` 数据而没有配置文件。
+
+**修复**: 在 `teamsService.ts` 中添加 `inferTeamFromInboxes()` 方法：
+- 当 `config.json` 不存在时，自动从 `inboxes` 目录推断团队信息
+- 从 inbox 文件提取：成员列表、消息数量、时间戳
+- 根据消息内容推断 agent 类型（Explore/Plan/general-purpose）
+- 将团队 ID 转换为可读名称（如 `dsa-dev` → `Dsa Dev`）
+
+**结果**: 现在可以显示所有有 inbox 数据的团队，而不仅限于有配置文件的团队。
+
+#### 4. Projects 未在 Sidebar 显示
+**问题**: Sidebar 中没有 Projects 列表。
+
+**修复**: 在 `Sidebar.tsx` 中添加 Projects 列表渲染。
+
+#### 5. 后端启动脚本错误
+**问题**: `npm start` 报错，因为 `package.json` 中的 `start` 脚本指向了 `.ts` 文件而非 `.js` 文件。
+
+**修复**: 将 `"start": "node dist/index.ts"` 改为 `"start": "node dist/index.js"`。
+
+#### 7. 时间戳格式修复
+**问题**: Session 和 Team 的相对时间显示不正确（如显示 "26m ago" 而实际是刚刚更新）。
+
+**原因**: Claude Code 的 history.jsonl 使用秒级 Unix 时间戳（10位），而 JavaScript 使用毫秒级（13位），导致时间计算偏差。
+
+**修复**:
+- 后端 `sessionsService.ts`: 自动检测时间戳格式，秒级时间戳自动乘以 1000 转换为毫秒级
+- 检测逻辑: `timestamp > 10000000000 ? timestamp : timestamp * 1000`
+
+#### 8. Session Detail 时间显示优化
+**优化**: 移除 Created 字段，只保留 Last Active，使用相对时间格式（如 "2h ago"）。
+
+**原因**: 对于单轮对话 session，created 和 updated 时间几乎相同，显示两个时间没有意义。
+
+#### 9. Code Review 修复
+**修复日期**: 2026-02-16
+
+**修复内容**:
+- **正则表达式全局状态污染**: 修复 `SessionDetail.tsx` 和 `MessageItem.tsx` 中的正则表达式，移除 `g` 标志避免 `lastIndex` 问题
+- **内存泄漏**: 修复 `useWebSocket.ts` 中的 `setTimeout` 未清理问题，添加超时跟踪和清理逻辑
+- **硬编码配置**: 将 WebSocket URL 改为从环境变量 `VITE_WS_URL` 读取
+- **输入验证**: 为 `limit` 参数添加最大值限制（1000），防止请求过大导致内存问题
+- **类型定义统一**: 统一前后端 `Message` 类型定义，添加 `status_update` 类型
+- **数组原地修改**: 修复 `SessionList.tsx` 中的 `.sort()` 原地修改问题，使用 `[...filtered].sort()`
+- **护眼模式移除**: 删除护眼模式相关代码，仅保留深色主题
+
+#### 10. 右侧面板无响应
+**问题**: 点击 Sessions 或 Teams 列表项后，右侧面板无响应，不显示详情。
+
+**原因**: `App.tsx` 中使用 `session.id` 进行选择，但 `SessionList` 组件使用 `session.sessionId`，导致 ID 不匹配。
+
+**修复**:
+- `App.tsx`: 统一使用 `session.sessionId` 进行选择比较和 WebSocket 事件处理
+- `handleSelectSession`: 改为 `setSelectedSessionId(session.sessionId)`
+- `handleSessionData`: 改为比较 `updatedSession.sessionId`
+- `handleSessionUpdated`: 改为比较 `updatedSession.sessionId`
+
+#### 11. 删除后列表不自动刷新
+**问题**: 删除 Session 或 Team 后，列表没有立即更新，需要手动点击刷新按钮。
+
+**原因**:
+1. WebSocket 广播 `sessions:updated` 事件，但前端没有注册 `onSessionsUpdated` 回调
+2. 删除后缓存刷新逻辑不完整
+
+**修复**:
+- `App.tsx`: 添加 `handleSessionsUpdated` 和 `handleProjectsUpdated` 回调
+- `useWebSocket`: 传入 `onSessionsUpdated` 和 `onProjectsUpdated` 回调
+- `sessionsService.ts`: 添加 `afterDelete()` 方法，删除后强制重新加载数据
+- `teamsService.ts`: 添加 `afterDelete()` 方法
+- 删除路由: 调用 `afterDelete()` 替代简单的 `clearCache()`
+
+#### 12. 新对话检测需要重启后端
+**问题**: 开启新的 Claude Code 对话后，Claude Viewer 检测不到新 Session，需要重启后端。
+
+**原因**: 后端缓存机制导致，文件变更时缓存未正确失效。
+
+**修复**:
+- `sessionsService.ts`: 修复缓存时间戳比较逻辑，使用 `Math.floor()` 处理文件系统精度差异
+- `fileWatcher.ts`: 添加 `addDir` 事件处理，检测新创建的目录
+- 前端刷新按钮: 添加 `?refresh=true` 参数支持，强制后端重新读取文件
+
+#### 13. 收藏和标签功能失效
+**问题**: 添加收藏或标签后，数据无法保存，功能失效。
+
+**原因**: 前端 API 请求使用了硬编码的 `http://localhost:3001`，而后端实际运行在 `13927` 端口，导致请求失败。
+
+**修复**:
+- `useSessionTags.ts`, `useSavedFilters.ts`, `useWebSocket.ts`: 将 `API_BASE_URL` 改为相对路径 `''`，通过 Vite 代理转发请求
+- `SessionNamesContext.tsx`, `TeamNamesContext.tsx`: 同样修复 API 路径
+
+#### 14. CORS 错误导致收藏保存失败
+**问题**: 保存收藏名称时，后端返回 500 错误，提示 "CORS policy does not allow access"。
+
+**原因**: 后端 CORS 配置默认只允许 `http://localhost:5173`，但前端实际运行在 `5174` 端口。
+
+**修复**:
+- `backend/src/server.ts`: 在 `getCorsOrigins()` 函数中添加 `http://localhost:5174` 到允许列表
+
+#### 15. Rate Limit 限制导致 429 错误
+**问题**: 页面加载时频繁出现 "429 Too Many Requests" 错误，导致 API 请求失败。
+
+**原因**: 后端 rate limit 限制为 100 请求/15分钟，前端初始化时需要加载多个资源，容易触发限制。
+
+**修复**:
+- `backend/src/server.ts`: 将 `max` 从 100 增加到 1000 请求/15分钟（开发环境）
+
+#### 16. 无限渲染循环警告
+**问题**: 控制台出现 "Maximum update depth exceeded" 警告，页面性能下降。
+
+**原因**: `useCommandPalette.ts` 中的 `useEffect` 在 `filteredCommands` 变化时更新 state，导致循环依赖。
+
+**修复**:
+- `useCommandPalette.ts`: 移除不必要的 `useEffect`，改为在渲染时直接计算 `filteredCommands`
+
+#### 17. HTML 嵌套错误
+**问题**: 控制台出现 "button cannot be a descendant of button" 警告。
+
+**原因**: `SessionList.tsx` 中按钮嵌套按钮，违反 HTML 规范。
+
+**修复**:
+- `SessionList.tsx`: 将外层按钮改为 `div`，内层使用 `span` 包裹操作按钮
+
+#### 18. Teams 消息不实时显示
+**问题**: 当 claude-viewer 打开时，Claude Code 会话发送消息给团队成员收不到实时更新。
+
+**原因**: `App.tsx` 中未传入 `onMessagesUpdated` 回调，导致 WebSocket 消息更新无法反映到 UI。
+
+**修复**:
+- `App.tsx`: 添加 `handleMessagesUpdated` 回调处理 `team:messages` 事件
+- `useWebSocket.ts`: 确保消息事件正确触发回调
+- `backend/src/server.ts`: 修复文件名与成员名映射问题
+
+#### 19. Teams 成员状态显示异常
+**问题**: team-lead 有大量 "available" 状态消息，其他成员几乎没有状态显示。
+
+**原因**: `MemberList.tsx` 没有从 inbox 消息中解析当前状态，且存在文件名与成员名不匹配问题。
+
+**修复**:
+- `MemberList.tsx`: 添加 `getMemberStatusFromMessages()` 方法解析消息状态
+- 新增 `getStatusLabel()` 和 `getStatusBadgeStyle()` 显示友好状态标签
+- `TeamsService.ts`: 添加 `findInboxFile()` 方法处理文件名模糊匹配
+- 支持多种状态类型：available, busy, working, idle, offline, error
+
+#### 20. Teams 消息面板布局问题
+**问题**: 消息面板下方有较大空地，消息区域未填满可用空间。
+
+**原因**: `MessagePanel.tsx` 中使用了固定的 `maxHeight: 'calc(100vh - 400px)'`。
+
+**修复**:
+- `MessagePanel.tsx`: 使用 `flex-1` 让消息区域自适应填充剩余空间
+- 将外层容器改为 `flex flex-col h-full` 布局
+
+#### 21. 最新消息闪烁问题
+**问题**: 最新消息有闪烁动画（`animate-pulse`），影响阅读体验。
+
+**修复**:
+- `MessageItem.tsx`: 移除 `isLatest ? 'animate-pulse' : ''` 样式
+- 保留 20 秒内新消息的绿色描边提示（`isJustNow`）
+
+#### 22. Sessions 不实时更新
+**问题**: Session 对话内容更新后，claude-viewer 未实时显示新消息。
+
+**原因**: `SessionCache.isValid()` 缓存判断逻辑缺陷，当 conversation 文件变化时缓存未正确失效。
+
+**修复**:
+- `SessionCache.ts`: 修复 `isValid()` 方法，缓存为空时强制重新加载
+- 确保 WebSocket 消息更新能正确触发缓存刷新
+
+#### 23. Session 名称显示系统消息
+**问题**: Session 列表和详情中显示 `<ide_opened_file>`、`<system-reminder>` 等系统消息作为标题。
+
+**原因**: `getSessionTitle()` 函数直接使用 `inputs[0].display`，未过滤系统消息。
+
+**修复**:
+- `types/index.ts`: 添加 `SYSTEM_MESSAGE_PATTERNS` 和 `isSystemContent()` 工具函数
+- `SessionList.tsx`, `Dashboard.tsx`, `ActivityTimeline.tsx`: 使用过滤后的第一个有效输入作为标题
+- `ConversationView.tsx`: 过滤消息内容中的系统消息
+- `exportUtils.ts`: 导出时过滤系统消息
+
+## 主题系统
+
+Claude Viewer 支持一键切换深色模式和护眼模式。
+
+### 内置主题
+
+| 主题 | ID | 描述 |
+|------|-----|------|
+| 深色模式 | `dark` | 深蓝灰色背景，高对比度，适合夜间使用 |
+| 护眼模式 | `eyeCare` | 暖色调背景，降低蓝光，适合长时间使用 |
+
+### 主题切换
+
+- 点击顶部导航栏的主题图标切换
+- 主题偏好自动保存到 `localStorage`
+- 使用 `Cmd/Ctrl + K` 打开命令面板快速切换
+
+### 添加新主题
+
+1. 在 `frontend/src/styles/themes/` 下创建新的主题文件：
+
+```typescript
+// frontend/src/styles/themes/myTheme.ts
+export const myTheme = {
+  id: 'myTheme' as const,
+  name: '我的主题',
+  nameEn: 'My Theme',
+  cssVars: {
+    '--bg-primary': '#1a1a2e',
+    '--bg-secondary': '#16213e',
+    // ... 其他变量
+  },
+};
+```
+
+2. 在 `frontend/src/styles/themes/index.ts` 中注册主题：
+
+```typescript
+import { myTheme } from './myTheme';
+
+export const themes = {
+  dark: darkTheme,
+  eyeCare: eyeCareTheme,
+  myTheme: myTheme,
+};
+```
+
+3. 重新启动前端服务即可使用新主题
+
+### CSS 变量列表
+
+主题使用以下 CSS 变量（在 `:root` 作用域）：
+
+| 变量名 | 说明 |
+|--------|------|
+| `--bg-primary` | 主背景色 |
+| `--bg-secondary` | 次级背景色 |
+| `--bg-tertiary` | 三级背景色 |
+| `--bg-card` | 卡片背景色 |
+| `--bg-hover` | 悬停背景色 |
+| `--text-primary` | 主文字色 |
+| `--text-secondary` | 次级文字色 |
+| `--text-tertiary` | 三级文字色 |
+| `--accent-blue` | 主强调色 |
+| `--accent-green` | 成功/确认色 |
+| `--accent-amber` | 警告色 |
+| `--accent-red` | 错误/删除色 |
+
+## 国际化系统
+
+Claude Viewer 内置中文和英文支持。
+
+### 语言切换
+
+- 点击顶部导航栏的语言图标切换
+- 自动检测浏览器首选语言
+- 语言偏好自动保存到 `localStorage`
+
+### 翻译文件结构
+
+```
+frontend/src/i18n/
+├── types.ts          # 翻译键类型定义
+├── locales/
+│   ├── zh-CN.ts      # 中文翻译
+│   ├── en.ts         # 英文翻译
+│   └── index.ts      # 语言包导出
+```
+
+### 添加新翻译
+
+1. 在 `frontend/src/i18n/types.ts` 中添加新的翻译键：
+
+```typescript
+export interface TranslationSchema {
+  // 现有翻译...
+  'my.new.key': string;
+  'my.interpolated.key': string;  // 支持变量插值
+}
+```
+
+2. 在 `frontend/src/i18n/locales/zh-CN.ts` 和 `en.ts` 中添加对应翻译：
+
+```typescript
+// zh-CN.ts
+export const zhCN: TranslationSchema = {
+  // 现有翻译...
+  'my.new.key': '我的新文本',
+  'my.interpolated.key': '你好，{{name}}！',  // 变量插值
+};
+
+// en.ts
+export const en: TranslationSchema = {
+  // 现有翻译...
+  'my.new.key': 'My new text',
+  'my.interpolated.key': 'Hello, {{name}}!',  // Variable interpolation
+};
+```
+
+3. 在组件中使用翻译：
+
+```typescript
+import { useTranslation } from '../hooks/useTranslation';
+
+function MyComponent() {
+  const { t } = useTranslation();
+
+  return (
+    <div>
+      <p>{t('my.new.key')}</p>
+      <p>{t('my.interpolated.key', { name: 'Claude' })}</p>
+    </div>
+  );
+}
+```
+
+### 添加新语言
+
+1. 创建新的语言文件：
+
+```typescript
+// frontend/src/i18n/locales/ja.ts
+export const ja: TranslationSchema = {
+  'common.search': '検索',
+  // ... 所有翻译键
+};
+```
+
+2. 在 `frontend/src/i18n/locales/index.ts` 中注册：
+
+```typescript
+import { ja } from './ja';
+
+export const locales = {
+  'zh-CN': zhCN,
+  'en': en,
+  'ja': ja,
+};
+```
+
+3. 在 `frontend/src/contexts/I18nContext.tsx` 中添加语言配置
+
+## 技术栈
+
+- **前端**: React 19 + TypeScript + Vite + Tailwind CSS + Socket.io Client
+- **后端**: Node.js + Express + Socket.io + TypeScript + tsx
+- **实时通信**: WebSocket (Socket.io)
+- **数据存储**: 文件系统 (JSONL/JSON)
+- **主题**: 深色主题 + 护眼模式，CSS 变量驱动
+- **国际化**: React Context + 自定义 Hook，支持中英文切换
+
+## 许可证
+
+MIT

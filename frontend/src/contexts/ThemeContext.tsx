@@ -1,25 +1,94 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import { applyTheme, themes } from '../styles/themes';
+import type { ThemeId } from '../styles/themes';
 
-type Theme = 'dark';
+const STORAGE_KEY = 'claude-viewer-theme';
 
 interface ThemeContextType {
-  theme: Theme;
+  theme: ThemeId;
+  setTheme: (theme: ThemeId | ((prev: ThemeId) => ThemeId)) => void;
+  toggleTheme: () => void;
+  isDark: boolean;
+  isEyeCare: boolean;
+  isLightEyeCare: boolean;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme] = useState<Theme>('dark');
+// 从 localStorage 获取主题设置
+const getStoredTheme = (): ThemeId | null => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored && (stored === 'dark' || stored === 'eyeCare' || stored === 'lightEyeCare')) {
+      return stored as ThemeId;
+    }
+  } catch {
+    // 忽略 localStorage 错误
+  }
+  return null;
+};
 
-  // Apply theme to document
+// 保存主题设置到 localStorage
+const storeTheme = (theme: ThemeId): void => {
+  try {
+    localStorage.setItem(STORAGE_KEY, theme);
+  } catch {
+    // 忽略 localStorage 错误
+  }
+};
+
+// 检测系统主题偏好
+const getSystemTheme = (): ThemeId => {
+  if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    return 'dark';
+  }
+  return 'dark'; // 默认深色主题
+};
+
+export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  const [theme, setThemeState] = useState<ThemeId>(() => {
+    return getStoredTheme() || getSystemTheme();
+  });
+
+  // 应用主题
   useEffect(() => {
-    const root = document.documentElement;
-    root.classList.add('dark');
-    root.style.colorScheme = 'dark';
+    applyTheme(theme);
   }, [theme]);
 
+  const setTheme = useCallback((newTheme: ThemeId | ((prev: ThemeId) => ThemeId)) => {
+    setThemeState((prev) => {
+      const resolvedTheme = typeof newTheme === 'function' ? newTheme(prev) : newTheme;
+      storeTheme(resolvedTheme);
+      return resolvedTheme;
+    });
+  }, []);
+
+  const toggleTheme = useCallback(() => {
+    setTheme((prev) => {
+      if (prev === 'dark') return 'eyeCare';
+      if (prev === 'eyeCare') return 'lightEyeCare';
+      return 'dark';
+    });
+  }, [setTheme]);
+
+  const isDark = theme === 'dark';
+  const isEyeCare = theme === 'eyeCare';
+  const isLightEyeCare = theme === 'lightEyeCare';
+
+  const value = useMemo(
+    () => ({
+      theme,
+      setTheme,
+      toggleTheme,
+      isDark,
+      isEyeCare,
+      isLightEyeCare,
+    }),
+    [theme, setTheme, toggleTheme, isDark, isEyeCare, isLightEyeCare]
+  );
+
   return (
-    <ThemeContext.Provider value={{ theme }}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   );
@@ -33,7 +102,7 @@ export function useTheme() {
   return context;
 }
 
-// Theme color configurations
+// 保留旧版兼容
 export const themeColors = {
   dark: {
     bg: {
@@ -62,7 +131,8 @@ export const themeColors = {
   },
 };
 
-// Hook to get current theme colors
 export function useThemeColors() {
   return themeColors.dark;
 }
+
+export { themes, ThemeId };

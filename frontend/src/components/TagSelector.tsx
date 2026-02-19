@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Tag, X, Plus, ChevronDown } from 'lucide-react';
+import { useTranslation } from '../hooks/useTranslation';
 
 interface TagSelectorProps {
   tags: string[];
@@ -8,6 +9,7 @@ interface TagSelectorProps {
   onRemoveTag: (tag: string) => void;
   placeholder?: string;
   maxTags?: number;
+  compact?: boolean;
 }
 
 export const TagSelector: React.FC<TagSelectorProps> = ({
@@ -15,9 +17,11 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
   availableTags,
   onAddTag,
   onRemoveTag,
-  placeholder = '添加标签...',
+  placeholder,
   maxTags = 10,
+  compact = false,
 }) => {
+  const { t } = useTranslation();
   const [inputValue, setInputValue] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -81,7 +85,7 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
     <div ref={containerRef} className="relative">
       {/* Tags Display */}
       <div
-        className="flex flex-wrap gap-2 p-2 rounded-lg border min-h-[42px] cursor-text"
+        className={`flex flex-wrap rounded-lg border cursor-text ${compact ? 'gap-1.5 p-1.5 min-h-[34px]' : 'gap-2 p-2 min-h-[42px]'}`}
         style={{
           backgroundColor: 'var(--bg-tertiary)',
           borderColor: isOpen ? 'var(--accent-blue)' : 'var(--border-primary)',
@@ -98,30 +102,30 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
           return (
             <span
               key={tag}
-              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all"
+              className={`inline-flex items-center gap-1 rounded-md font-medium transition-all ${compact ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-1 text-xs'}`}
               style={{
                 backgroundColor: colors.bg,
                 color: colors.text,
                 border: `1px solid ${colors.border}`,
               }}
             >
-              <Tag className="w-3 h-3" />
+              <Tag className={compact ? 'w-2.5 h-2.5' : 'w-3 h-3'} />
               {tag}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   onRemoveTag(tag);
                 }}
-                className="ml-1 p-0.5 rounded hover:bg-white/10 transition-colors"
+                className="ml-0.5 p-0.5 rounded hover:bg-white/10 transition-colors"
               >
-                <X className="w-3 h-3" />
+                <X className={compact ? 'w-2.5 h-2.5' : 'w-3 h-3'} />
               </button>
             </span>
           );
         })}
 
         {canAddMore && (
-          <div className="flex items-center flex-1 min-w-[80px]">
+          <div className={`flex items-center flex-1 ${compact ? 'min-w-[60px]' : 'min-w-[80px]'}`}>
             <input
               ref={inputRef}
               type="text"
@@ -132,20 +136,20 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
               }}
               onKeyDown={handleInputKeyDown}
               onFocus={() => setIsOpen(true)}
-              placeholder={tags.length === 0 ? placeholder : ''}
-              className="flex-1 bg-transparent text-sm outline-none min-w-[60px]"
+              placeholder={tags.length === 0 ? placeholder || t('tag.add') : ''}
+              className={`flex-1 bg-transparent outline-none ${compact ? 'text-xs min-w-[40px]' : 'text-sm min-w-[60px]'}`}
               style={{ color: 'var(--text-secondary)' }}
             />
             <ChevronDown
-              className={`w-4 h-4 ml-1 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+              className={`ml-1 transition-transform ${isOpen ? 'rotate-180' : ''} ${compact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`}
               style={{ color: 'var(--text-muted)' }}
             />
           </div>
         )}
 
         {!canAddMore && tags.length > 0 && (
-          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-            最多 {maxTags} 个标签
+          <span className={`${compact ? 'text-[10px]' : 'text-xs'}`} style={{ color: 'var(--text-muted)' }}>
+            {t('tag.maxTags', { maxTags })}
           </span>
         )}
       </div>
@@ -166,7 +170,7 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
               style={{ color: 'var(--text-secondary)' }}
             >
               <Plus className="w-4 h-4" style={{ color: 'var(--accent-green)' }} />
-              创建标签 &quot;{inputValue.trim()}&quot;
+              {t('tag.createTag')}: &quot;{inputValue.trim()}&quot;
             </button>
           )}
 
@@ -179,7 +183,7 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
                 />
               )}
               <div className="px-3 py-1 text-xs" style={{ color: 'var(--text-muted)' }}>
-                已有标签
+                {t('tag.existingTags')}
               </div>
               {filteredAvailableTags.map((tag) => {
                 const colors = getTagColor(tag);
@@ -209,7 +213,7 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
 
           {filteredAvailableTags.length === 0 && !inputValue.trim() && (
             <div className="px-3 py-2 text-sm" style={{ color: 'var(--text-muted)' }}>
-              输入创建新标签
+              {t('tag.createNewTag')}
             </div>
           )}
         </div>

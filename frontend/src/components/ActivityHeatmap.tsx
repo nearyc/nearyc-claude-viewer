@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import type { Session } from '../types';
+import { useTranslation } from '../hooks/useTranslation';
 
 interface ActivityData {
   date: string; // YYYY-MM-DD
@@ -16,6 +17,8 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
   sessions,
   days = 90,
 }) => {
+  const { t } = useTranslation();
+
   const heatmapData = useMemo(() => {
     const now = new Date();
     const data: ActivityData[] = [];
@@ -71,13 +74,13 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
       case 0:
         return 'var(--bg-tertiary)';
       case 1:
-        return 'rgba(59, 130, 246, 0.2)';
+        return 'var(--accent-blue-subtle)';
       case 2:
-        return 'rgba(59, 130, 246, 0.4)';
+        return 'var(--accent-blue-light)';
       case 3:
-        return 'rgba(59, 130, 246, 0.6)';
+        return 'var(--accent-blue-medium)';
       case 4:
-        return 'rgba(59, 130, 246, 0.85)';
+        return 'var(--accent-blue-strong)';
       default:
         return 'var(--bg-tertiary)';
     }
@@ -99,7 +102,7 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
     <div
       className="p-4 rounded-lg border"
       style={{
-        backgroundColor: 'rgba(30, 41, 59, 0.5)',
+        backgroundColor: 'var(--bg-secondary)',
         borderColor: 'var(--border-primary)',
       }}
     >
@@ -109,12 +112,12 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
           className="text-sm font-medium"
           style={{ color: 'var(--text-secondary)' }}
         >
-          会话活跃度
+          {t('activity.title')}
         </h3>
         <div className="flex items-center gap-4 text-xs" style={{ color: 'var(--text-muted)' }}>
-          <span>{totalSessions} 会话</span>
-          <span>{activeDays} 活跃天数</span>
-          {maxSessionsInDay > 0 && <span>最多 {maxSessionsInDay}/天</span>}
+          <span>{t('activity.sessionsCount')}: {totalSessions}</span>
+          <span>{t('activity.activeDays')}: {activeDays}</span>
+          {maxSessionsInDay > 0 && <span>{t('activity.maxPerDay')}: {maxSessionsInDay}</span>}
         </div>
       </div>
 
@@ -125,9 +128,15 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
             {week.map((day, dayIndex) => (
               <div
                 key={`${weekIndex}-${dayIndex}`}
-                className="w-3 h-3 rounded-sm transition-all hover:ring-2 hover:ring-white/30 cursor-pointer"
+                className="w-3 h-3 rounded-sm transition-all hover:ring-2 cursor-pointer"
                 style={{ backgroundColor: getColor(day.level) }}
-                title={`${formatDate(day.date)}: ${day.count} 会话`}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.boxShadow = '0 0 0 2px var(--accent-blue)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+                title={`${formatDate(day.date)}: ${day.count} ${t('activity.sessionsCount')}`}
               />
             ))}
           </div>
@@ -136,7 +145,7 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
 
       {/* Legend */}
       <div className="flex items-center justify-end gap-2 mt-3 text-xs" style={{ color: 'var(--text-muted)' }}>
-        <span>少</span>
+        <span>{t('activity.less')}</span>
         {[0, 1, 2, 3, 4].map((level) => (
           <div
             key={level}
@@ -144,7 +153,7 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
             style={{ backgroundColor: getColor(level) }}
           />
         ))}
-        <span>多</span>
+        <span>{t('activity.more')}</span>
       </div>
     </div>
   );

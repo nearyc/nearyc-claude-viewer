@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { BarChart3 } from 'lucide-react';
 import type { ChatMessage } from '../../../types';
+import { useTranslation } from '../../../hooks/useTranslation';
 
 interface TimeDensityChartProps {
   messages: ChatMessage[];
@@ -8,6 +9,8 @@ interface TimeDensityChartProps {
 }
 
 export const TimeDensityChart: React.FC<TimeDensityChartProps> = ({ messages, onSelectTime }) => {
+  const { t } = useTranslation();
+
   const densityData = useMemo(() => {
     if (messages.length === 0) return [];
 
@@ -41,10 +44,10 @@ export const TimeDensityChart: React.FC<TimeDensityChartProps> = ({ messages, on
   }, [messages]);
 
   return (
-    <div className="px-4 py-2 border-b border-gray-800/60 bg-gray-900/30">
+    <div className="px-4 py-2 border-b border-[var(--bg-secondary)]/60 bg-[var(--bg-primary)]/30">
       <div className="flex items-center gap-2 mb-2">
-        <BarChart3 className="w-3.5 h-3.5 text-gray-500" />
-        <span className="text-xs text-gray-500">Activity</span>
+        <BarChart3 className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+        <span className="text-xs text-[var(--text-muted)]">{t('activity.activity')}</span>
       </div>
       <div className="flex items-end gap-0.5 h-8">
         {densityData.map((bucket, i) => (

@@ -78,72 +78,72 @@ const getStatusBadgeStyle = (status?: string): React.CSSProperties => {
   // Available / Online / Ready states - Green
   if (['online', 'available', 'ready', 'active', 'completed', 'success', 'done'].includes(statusLower)) {
     return {
-      backgroundColor: 'rgba(34, 197, 94, 0.15)',
+      backgroundColor: 'var(--accent-green-subtle)',
       color: 'var(--accent-green)',
-      borderColor: 'rgba(34, 197, 94, 0.3)',
+      borderColor: 'var(--accent-green-medium)',
     };
   }
 
   // Idle states - Blue
   if (['idle'].includes(statusLower)) {
     return {
-      backgroundColor: 'rgba(59, 130, 246, 0.15)',
+      backgroundColor: 'var(--accent-blue-subtle)',
       color: 'var(--accent-blue)',
-      borderColor: 'rgba(59, 130, 246, 0.3)',
+      borderColor: 'var(--accent-blue-medium)',
     };
   }
 
   // Busy / Working states - Amber
   if (['busy', 'working', 'processing', 'in_progress', 'task', 'assigned'].includes(statusLower)) {
     return {
-      backgroundColor: 'rgba(245, 158, 11, 0.15)',
+      backgroundColor: 'var(--accent-amber-subtle)',
       color: 'var(--accent-amber)',
-      borderColor: 'rgba(245, 158, 11, 0.3)',
+      borderColor: 'var(--accent-amber-medium)',
     };
   }
 
   // Error / Failed states - Red
   if (['error', 'failed', 'crash', 'exception'].includes(statusLower)) {
     return {
-      backgroundColor: 'rgba(239, 68, 68, 0.15)',
+      backgroundColor: 'var(--accent-red-subtle)',
       color: 'var(--accent-red)',
-      borderColor: 'rgba(239, 68, 68, 0.3)',
+      borderColor: 'var(--accent-red-medium)',
     };
   }
 
   // Offline / Default - Gray
   return {
-    backgroundColor: 'rgba(148, 163, 184, 0.15)',
+    backgroundColor: 'var(--accent-gray-subtle)',
     color: 'var(--text-muted)',
-    borderColor: 'rgba(148, 163, 184, 0.3)',
+    borderColor: 'var(--accent-gray-medium)',
   };
 };
 
 const ROLE_STYLES: Record<string, React.CSSProperties> = {
   lead: {
-    backgroundColor: 'rgba(139, 92, 246, 0.15)',
+    backgroundColor: 'var(--accent-purple-subtle)',
     color: 'var(--accent-purple)',
-    borderColor: 'rgba(139, 92, 246, 0.3)',
+    borderColor: 'var(--accent-purple-medium)',
   },
   explore: {
-    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    backgroundColor: 'var(--accent-blue-subtle)',
     color: 'var(--accent-blue)',
-    borderColor: 'rgba(59, 130, 246, 0.3)',
+    borderColor: 'var(--accent-blue-medium)',
   },
   plan: {
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    backgroundColor: 'var(--accent-amber-subtle)',
     color: 'var(--accent-amber)',
-    borderColor: 'rgba(245, 158, 11, 0.3)',
+    borderColor: 'var(--accent-amber-medium)',
   },
   execute: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    backgroundColor: 'var(--accent-green-subtle)',
     color: 'var(--accent-green)',
-    borderColor: 'rgba(16, 185, 129, 0.3)',
+    borderColor: 'var(--accent-green-medium)',
   },
   review: {
-    backgroundColor: 'rgba(236, 72, 153, 0.15)',
-    color: '#ec4899',
-    borderColor: 'rgba(236, 72, 153, 0.3)',
+    backgroundColor: 'var(--accent-red-subtle)',
+    color: 'var(--accent-red)',
+    borderColor: 'var(--accent-red-medium)',
   },
 };
 
@@ -257,7 +257,7 @@ export const MemberList: React.FC<MemberListProps> = ({
           className="px-5 py-3.5 border-b"
           style={{
             borderColor: 'var(--border-primary)',
-            backgroundColor: 'rgba(30, 41, 59, 0.5)',
+            backgroundColor: 'var(--bg-secondary)',
           }}
         >
           <div className="flex items-center gap-2.5" style={{ color: 'var(--text-primary)' }}>
@@ -298,7 +298,7 @@ export const MemberList: React.FC<MemberListProps> = ({
         className="px-5 py-3.5 border-b"
         style={{
           borderColor: 'var(--border-primary)',
-          backgroundColor: 'rgba(30, 41, 59, 0.5)',
+          backgroundColor: 'var(--bg-secondary)',
         }}
       >
         <div className="flex items-center gap-2.5" style={{ color: 'var(--text-primary)' }}>
@@ -332,8 +332,8 @@ export const MemberList: React.FC<MemberListProps> = ({
               onClick={() => onSelectMember(member.name)}
               className="w-full px-3 py-2.5 text-left rounded-lg transition-all duration-150 border"
               style={{
-                backgroundColor: isSelected ? 'rgba(139, 92, 246, 0.1)' : 'transparent',
-                borderColor: isSelected ? 'rgba(139, 92, 246, 0.3)' : 'transparent',
+                backgroundColor: isSelected ? 'var(--accent-purple-subtle)' : 'transparent',
+                borderColor: isSelected ? 'var(--accent-purple-medium)' : 'transparent',
               }}
               onMouseEnter={(e) => {
                 if (!isSelected) {
@@ -376,7 +376,7 @@ export const MemberList: React.FC<MemberListProps> = ({
                   <div
                     className="font-medium text-sm truncate"
                     style={{
-                      color: isSelected ? '#c4b5fd' : 'var(--text-secondary)',
+                      color: isSelected ? 'var(--accent-purple)' : 'var(--text-secondary)',
                     }}
                   >
                     {member.name}

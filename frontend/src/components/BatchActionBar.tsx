@@ -1,6 +1,7 @@
 import React from 'react';
 import { Trash2, Download, X, CheckSquare, Square } from 'lucide-react';
 import type { Session } from '../types';
+import { useTranslation } from '../hooks/useTranslation';
 
 interface BatchActionBarProps {
   selectedSessions: Session[];
@@ -21,6 +22,7 @@ export const BatchActionBar: React.FC<BatchActionBarProps> = ({
   isDeleting = false,
   isExporting = false,
 }) => {
+  const { t } = useTranslation();
   const selectedCount = selectedSessions.length;
 
   if (selectedCount === 0) {
@@ -39,7 +41,7 @@ export const BatchActionBar: React.FC<BatchActionBarProps> = ({
       <div className="flex items-center gap-2">
         <CheckSquare className="w-4 h-4" style={{ color: 'var(--accent-blue)' }} />
         <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-          {selectedCount} selected
+          {t('status.selected', { count: selectedCount })}
         </span>
       </div>
 
@@ -63,7 +65,7 @@ export const BatchActionBar: React.FC<BatchActionBarProps> = ({
           }}
         >
           <Square className="w-3.5 h-3.5" />
-          <span>Select All</span>
+          <span>{t('common.selectAll')}</span>
         </button>
 
         <button
@@ -84,7 +86,7 @@ export const BatchActionBar: React.FC<BatchActionBarProps> = ({
           }}
         >
           <Download className={`w-3.5 h-3.5 ${isExporting ? 'animate-pulse' : ''}`} />
-          <span>{isExporting ? 'Exporting...' : 'Export'}</span>
+          <span>{isExporting ? t('common.exporting') : t('common.export')}</span>
         </button>
 
         <button
@@ -105,7 +107,7 @@ export const BatchActionBar: React.FC<BatchActionBarProps> = ({
           }}
         >
           <Trash2 className={`w-3.5 h-3.5 ${isDeleting ? 'animate-pulse' : ''}`} />
-          <span>{isDeleting ? 'Deleting...' : 'Delete'}</span>
+          <span>{isDeleting ? t('common.deleting') : t('common.delete')}</span>
         </button>
       </div>
 
@@ -125,7 +127,7 @@ export const BatchActionBar: React.FC<BatchActionBarProps> = ({
           e.currentTarget.style.backgroundColor = 'transparent';
           e.currentTarget.style.color = 'var(--text-muted)';
         }}
-        title="Clear selection"
+        title={t('common.clearSelection')}
       >
         <X className="w-4 h-4" />
       </button>

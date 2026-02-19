@@ -5,6 +5,7 @@ import type { Team } from '../types';
 import { useTeamNames } from '../hooks/useTeamNames';
 import { ConfirmDialog } from './ConfirmDialog';
 import { deleteTeam } from '../api/delete';
+import { useTranslation } from '../hooks/useTranslation';
 
 interface TeamListProps {
   teams: Team[];
@@ -23,6 +24,7 @@ export const TeamList: React.FC<TeamListProps> = ({
   onRefresh,
   isRefreshing,
 }) => {
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const [showOnlyStarred, setShowOnlyStarred] = useState(false);
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
@@ -93,7 +95,7 @@ export const TeamList: React.FC<TeamListProps> = ({
       onTeamDeleted?.(teamId);
     } catch (error) {
       console.error('Failed to delete team:', error);
-      alert('删除团队失败，请重试');
+      alert(t('team.deleteError'));
     } finally {
       setDeletingTeam(null);
     }
@@ -109,13 +111,13 @@ export const TeamList: React.FC<TeamListProps> = ({
         className="px-4 py-3 border-b"
         style={{
           borderColor: 'var(--border-primary)',
-          backgroundColor: 'rgba(30, 41, 59, 0.5)',
+          backgroundColor: 'var(--bg-secondary)',
         }}
       >
         <div className="flex items-center gap-2 mb-3" style={{ color: 'var(--text-primary)' }}>
           <Users className="w-5 h-5" style={{ color: 'var(--text-muted)' }} />
           <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>
-            Teams
+            {t('team.title')}
           </span>
 
           {/* Refresh button */}
@@ -123,7 +125,7 @@ export const TeamList: React.FC<TeamListProps> = ({
             <button
               onClick={onRefresh}
               disabled={isRefreshing}
-              title="刷新列表"
+              title={t('common.refresh')}
               className="ml-auto flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-all disabled:opacity-50"
               style={{
                 backgroundColor: 'var(--bg-tertiary)',
@@ -138,16 +140,16 @@ export const TeamList: React.FC<TeamListProps> = ({
           {/* Star toggle button */}
           <button
             onClick={() => setShowOnlyStarred(!showOnlyStarred)}
-            title={showOnlyStarred ? '显示所有团队' : '只显示已收藏团队'}
+            title={showOnlyStarred ? t('filter.showAll') : t('filter.showOnlyStarred')}
             className="flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-all"
             style={{
-              backgroundColor: showOnlyStarred ? 'rgba(234, 179, 8, 0.2)' : 'var(--bg-tertiary)',
-              color: showOnlyStarred ? 'rgb(234, 179, 8)' : 'var(--text-muted)',
-              border: `1px solid ${showOnlyStarred ? 'rgba(234, 179, 8, 0.3)' : 'var(--border-primary)'}`,
+              backgroundColor: showOnlyStarred ? 'var(--accent-amber-subtle)' : 'var(--bg-tertiary)',
+              color: showOnlyStarred ? 'var(--accent-amber)' : 'var(--text-muted)',
+              border: `1px solid ${showOnlyStarred ? 'var(--accent-amber-medium)' : 'var(--border-primary)'}`,
             }}
           >
             <Star className="w-3 h-3" fill={showOnlyStarred ? 'currentColor' : 'none'} />
-            <span>{showOnlyStarred ? '已收藏' : '全部'}</span>
+            <span>{showOnlyStarred ? t('common.saved') : t('common.all')}</span>
           </button>
 
           <span
@@ -173,7 +175,7 @@ export const TeamList: React.FC<TeamListProps> = ({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search teams..."
+            placeholder={t('common.search')}
             className="w-full pl-9 pr-8 py-2 rounded-lg text-sm transition-colors focus:outline-none"
             style={{
               backgroundColor: 'var(--bg-secondary)',
@@ -212,7 +214,7 @@ export const TeamList: React.FC<TeamListProps> = ({
               <Users className="w-5 h-5 opacity-40" />
             </div>
             <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              {searchQuery ? 'No teams match your search' : 'No teams available'}
+              {searchQuery ? t('empty.noSearchResults') : t('empty.noTeams')}
             </p>
           </div>
         ) : (
@@ -231,33 +233,33 @@ export const TeamList: React.FC<TeamListProps> = ({
                   className="w-full px-3 py-3 text-left rounded-lg transition-all duration-150 border group cursor-pointer"
                   style={{
                     backgroundColor: isSelected
-                      ? 'rgba(59, 130, 246, 0.1)'
+                      ? 'var(--accent-blue-subtle)'
                       : hasCustom
-                        ? 'rgba(234, 179, 8, 0.05)'
+                        ? 'var(--accent-amber-subtle)'
                         : 'transparent',
                     borderColor: isSelected
-                      ? 'rgba(59, 130, 246, 0.3)'
+                      ? 'var(--accent-blue-medium)'
                       : hasCustom
-                        ? 'rgba(234, 179, 8, 0.2)'
+                        ? 'var(--accent-amber-medium)'
                         : 'transparent',
                   }}
                   onMouseEnter={(e) => {
                     if (!isSelected) {
                       e.currentTarget.style.backgroundColor = hasCustom
-                        ? 'rgba(234, 179, 8, 0.1)'
+                        ? 'var(--accent-amber-subtle)'
                         : 'var(--bg-hover)';
                       e.currentTarget.style.borderColor = hasCustom
-                        ? 'rgba(234, 179, 8, 0.3)'
+                        ? 'var(--accent-amber-strong)'
                         : 'var(--border-primary)';
                     }
                   }}
                   onMouseLeave={(e) => {
                     if (!isSelected) {
                       e.currentTarget.style.backgroundColor = hasCustom
-                        ? 'rgba(234, 179, 8, 0.05)'
+                        ? 'var(--accent-amber-subtle)'
                         : 'transparent';
                       e.currentTarget.style.borderColor = hasCustom
-                        ? 'rgba(234, 179, 8, 0.2)'
+                        ? 'var(--accent-amber-medium)'
                         : 'transparent';
                     }
                   }}
@@ -266,7 +268,7 @@ export const TeamList: React.FC<TeamListProps> = ({
                     <div
                       className="flex-shrink-0 mt-0.5 w-5 h-5 rounded flex items-center justify-center"
                       style={{
-                        backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.2)' : 'var(--bg-tertiary)',
+                        backgroundColor: isSelected ? 'var(--accent-blue-subtle)' : 'var(--bg-tertiary)',
                       }}
                     >
                       <Hash
@@ -284,7 +286,7 @@ export const TeamList: React.FC<TeamListProps> = ({
                             value={customNameInput}
                             onChange={(e) => setCustomNameInput(e.target.value)}
                             onKeyDown={(e) => handleKeyDown(team.id, e)}
-                            placeholder="输入自定义名称..."
+                            placeholder={t('team.customNamePlaceholder')}
                             className="flex-1 px-2 py-1 text-sm rounded border focus:outline-none"
                             style={{
                               backgroundColor: 'var(--bg-secondary)',
@@ -314,7 +316,7 @@ export const TeamList: React.FC<TeamListProps> = ({
                           {hasCustom && (
                             <Star
                               className="w-3 h-3 flex-shrink-0"
-                              style={{ color: 'rgb(234, 179, 8)' }}
+                              style={{ color: 'var(--accent-amber)' }}
                               fill="currentColor"
                             />
                           )}
@@ -324,7 +326,7 @@ export const TeamList: React.FC<TeamListProps> = ({
                               color: isSelected
                                 ? 'var(--accent-blue-light)'
                                 : hasCustom
-                                  ? 'rgb(234, 179, 8)'
+                                  ? 'var(--accent-amber)'
                                   : 'var(--text-secondary)',
                             }}
                           >
@@ -338,7 +340,7 @@ export const TeamList: React.FC<TeamListProps> = ({
                               color: 'var(--text-muted)',
                               opacity: isSelected ? 1 : undefined,
                             }}
-                            title={hasCustom ? '编辑名称' : '收藏团队'}
+                            title={hasCustom ? t('team.editName') : t('team.starTeam')}
                           >
                             <Edit3 className="w-3 h-3" />
                           </button>
@@ -357,7 +359,7 @@ export const TeamList: React.FC<TeamListProps> = ({
                           className="text-xs"
                           style={{ color: 'var(--text-tertiary)' }}
                         >
-                          {team.memberCount} members • {team.messageCount} messages
+                          {team.memberCount} {t('team.members')} • {team.messageCount} {t('team.messages')}
                         </span>
                         <div className="flex items-center gap-2">
                           <span
@@ -375,13 +377,13 @@ export const TeamList: React.FC<TeamListProps> = ({
                             }}
                             onMouseEnter={(e) => {
                               e.currentTarget.style.color = 'var(--accent-red)';
-                              e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
+                              e.currentTarget.style.backgroundColor = 'var(--accent-red-subtle)';
                             }}
                             onMouseLeave={(e) => {
                               e.currentTarget.style.color = 'var(--text-muted)';
                               e.currentTarget.style.backgroundColor = 'transparent';
                             }}
-                            title="删除团队"
+                            title={t('team.deleteTeam')}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -399,14 +401,14 @@ export const TeamList: React.FC<TeamListProps> = ({
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog
         isOpen={!!deletingTeam}
-        title="删除团队"
+        title={t('team.deleteTitle')}
         message={
           deletingTeam
-            ? `确定要删除团队 "${getTeamName(deletingTeam.id) || deletingTeam.name}" 吗？此操作将删除该团队的所有成员和消息，不可恢复。`
+            ? t('team.deleteConfirmMessage', { name: getTeamName(deletingTeam.id) || deletingTeam.name })
             : ''
         }
-        confirmText="删除"
-        cancelText="取消"
+        confirmText={t('common.delete')}
+        cancelText={t('common.cancel')}
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeletingTeam(null)}
         isDestructive={true}

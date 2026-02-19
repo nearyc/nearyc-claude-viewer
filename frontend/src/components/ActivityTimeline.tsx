@@ -1,8 +1,9 @@
 import React, { useMemo } from 'react';
 import { MessageSquare, Users, Clock } from 'lucide-react';
-import type { Session, Team, ActivityItem } from '../types';
+import type { Session, Team } from '../types';
 import { isSystemContent } from '../types';
 import { formatRelativeTime } from '../utils/time';
+import { useTranslation } from '../hooks/useTranslation';
 
 interface ActivityTimelineProps {
   sessions: Session[];
@@ -25,6 +26,7 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
   teams,
   maxItems = 20,
 }) => {
+  const { t } = useTranslation();
   const timelineItems = useMemo(() => {
     const items: TimelineItem[] = [];
 
@@ -34,7 +36,7 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
       const validInput = session.inputs.find(input => !isSystemContent(input.display));
       const title = validInput
         ? validInput.display.slice(0, 60) + (validInput.display.length > 60 ? '...' : '')
-        : 'Empty Session';
+        : t('session.emptySession');
 
       items.push({
         id: `session-${session.id}`,
@@ -53,7 +55,7 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
         id: `team-${team.id}`,
         type: 'team',
         title: team.name,
-        subtitle: `${team.memberCount} members`,
+        subtitle: t('team.membersWithCount', { count: team.memberCount }),
         timestamp: team.updatedAt,
         icon: <Users className="w-3.5 h-3.5" />,
         color: 'var(--accent-purple)',
@@ -89,10 +91,10 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
       }
     });
 
-    if (today.length > 0) groups.push({ label: '今天', items: today });
-    if (yesterday.length > 0) groups.push({ label: '昨天', items: yesterday });
-    if (thisWeek.length > 0) groups.push({ label: '本周', items: thisWeek });
-    if (older.length > 0) groups.push({ label: '更早', items: older });
+    if (today.length > 0) groups.push({ label: t('activity.today'), items: today });
+    if (yesterday.length > 0) groups.push({ label: t('activity.yesterday'), items: yesterday });
+    if (thisWeek.length > 0) groups.push({ label: t('activity.thisWeek'), items: thisWeek });
+    if (older.length > 0) groups.push({ label: t('activity.earlier'), items: older });
 
     return groups;
   }, [timelineItems]);
@@ -102,7 +104,7 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
       <div
         className="p-4 rounded-lg border"
         style={{
-          backgroundColor: 'rgba(30, 41, 59, 0.5)',
+          backgroundColor: 'var(--bg-secondary)',
           borderColor: 'var(--border-primary)',
         }}
       >
@@ -110,13 +112,13 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
           className="text-sm font-medium mb-3"
           style={{ color: 'var(--text-secondary)' }}
         >
-          实时活动
+          {t('activity.realTime')}
         </h3>
         <div
           className="text-center py-8 text-sm"
           style={{ color: 'var(--text-muted)' }}
         >
-          暂无活动记录
+          {t('activity.noActivity')}
         </div>
       </div>
     );
@@ -126,7 +128,7 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
     <div
       className="p-4 rounded-lg border"
       style={{
-        backgroundColor: 'rgba(30, 41, 59, 0.5)',
+        backgroundColor: 'var(--bg-secondary)',
         borderColor: 'var(--border-primary)',
       }}
     >
@@ -136,11 +138,11 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
           className="text-sm font-medium"
           style={{ color: 'var(--text-secondary)' }}
         >
-          实时活动
+          {t('activity.realTime')}
         </h3>
         <div className="flex items-center gap-1 text-xs" style={{ color: 'var(--text-muted)' }}>
           <Clock className="w-3 h-3" />
-          <span>最近 {timelineItems.length} 条</span>
+          <span>{t('activity.recentCount', { count: timelineItems.length })}</span>
         </div>
       </div>
 

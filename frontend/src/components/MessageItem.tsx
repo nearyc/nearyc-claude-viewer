@@ -11,6 +11,7 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import { getMemberColor } from '../utils/colors';
+import { useTranslation } from '../hooks/useTranslation';
 import type { Message } from '../types';
 
 interface MessageItemProps {
@@ -135,35 +136,63 @@ const getMessageIcon = (type?: string) => {
   }
 };
 
-const getMessageTypeBadgeStyle = (type?: string): string => {
-  const styles: Record<string, string> = {
-    status_update: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-    task_assignment: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-    idle_notification: 'bg-green-500/10 text-green-400 border-green-500/20',
-    shutdown_approved: 'bg-red-500/10 text-red-400 border-red-500/20',
-    dm: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
-    direct_message: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+const getMessageTypeBadgeStyle = (type?: string): React.CSSProperties => {
+  const styles: Record<string, React.CSSProperties> = {
+    status_update: {
+      backgroundColor: 'var(--accent-amber-subtle)',
+      color: 'var(--accent-amber)',
+      borderColor: 'var(--accent-amber-medium)',
+    },
+    task_assignment: {
+      backgroundColor: 'var(--accent-green-subtle)',
+      color: 'var(--accent-green)',
+      borderColor: 'var(--accent-green-medium)',
+    },
+    idle_notification: {
+      backgroundColor: 'var(--accent-green-subtle)',
+      color: 'var(--accent-green)',
+      borderColor: 'var(--accent-green-medium)',
+    },
+    shutdown_approved: {
+      backgroundColor: 'var(--accent-red-subtle)',
+      color: 'var(--accent-red)',
+      borderColor: 'var(--accent-red-medium)',
+    },
+    dm: {
+      backgroundColor: 'var(--accent-purple-subtle)',
+      color: 'var(--accent-purple)',
+      borderColor: 'var(--accent-purple-medium)',
+    },
+    direct_message: {
+      backgroundColor: 'var(--accent-purple-subtle)',
+      color: 'var(--accent-purple)',
+      borderColor: 'var(--accent-purple-medium)',
+    },
   };
 
-  return styles[type || ''] || 'bg-gray-500/10 text-gray-400 border-gray-500/20';
+  return styles[type || ''] || {
+    backgroundColor: 'var(--bg-hover)',
+    color: 'var(--text-muted)',
+    borderColor: 'var(--border-primary)',
+  };
 };
 
 const getStatusColor = (status?: string): string => {
   const statusLower = status?.toLowerCase() || '';
 
   if (['available', 'idle', 'completed', 'success'].includes(statusLower)) {
-    return 'text-green-400';
+    return 'var(--accent-green)';
   }
   if (['busy', 'working', 'in_progress'].includes(statusLower)) {
-    return 'text-amber-400';
+    return 'var(--accent-amber)';
   }
   if (['error', 'failed'].includes(statusLower)) {
-    return 'text-red-400';
+    return 'var(--accent-red)';
   }
-  return 'text-blue-400';
+  return 'var(--accent-blue)';
 };
 
-const formatTimestamp = (timestamp: number): string => {
+const formatTimestamp = (timestamp: number, t: (key: string) => string): string => {
   const date = new Date(timestamp);
   const now = new Date();
   const diff = now.getTime() - date.getTime();
@@ -171,7 +200,7 @@ const formatTimestamp = (timestamp: number): string => {
   const hours = Math.floor(diff / 3600000);
   const days = Math.floor(diff / 86400000);
 
-  if (minutes < 1) return 'now';
+  if (minutes < 1) return t('message.now');
   if (minutes < 60) return `${minutes}m`;
   if (hours < 24) return `${hours}h`;
   if (days < 7) return `${days}d`;
@@ -217,7 +246,7 @@ const highlightText = (text: string | undefined, query: string): React.ReactNode
 
   return parts.map((part, i) =>
     part.toLowerCase() === query.toLowerCase() ? (
-      <mark key={i} className="bg-yellow-500/30 text-yellow-200 rounded px-0.5">{part}</mark>
+      <mark key={i} className="rounded px-0.5" style={{ backgroundColor: 'var(--accent-amber-medium)', color: 'var(--text-primary)' }}>{part}</mark>
     ) : (
       part
     )
@@ -237,29 +266,34 @@ const PlainTextContent: React.FC<PlainTextContentProps> = ({
   isCollapsed,
   onToggle
 }) => {
+  const { t } = useTranslation();
   const needsCollapse = shouldCollapse(content);
   const displayContent = isCollapsed && needsCollapse ? getPreviewText(content) : content;
 
   return (
     <div className="relative">
-      <div className={`text-sm text-gray-300 whitespace-pre-wrap ${isCollapsed && needsCollapse ? 'max-h-40 overflow-hidden' : ''}`}>
+      <div
+        className={`text-sm whitespace-pre-wrap ${isCollapsed && needsCollapse ? 'max-h-40 overflow-hidden' : ''}`}
+        style={{ color: 'var(--text-secondary)' }}
+      >
         {searchQuery ? highlightText(displayContent, searchQuery) : displayContent}
       </div>
 
       {needsCollapse && (
         <button
           onClick={onToggle}
-          className="mt-2 flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+          className="mt-2 flex items-center gap-1 text-xs transition-colors"
+          style={{ color: 'var(--accent-blue)' }}
         >
           {isCollapsed ? (
             <>
               <ChevronDown className="w-3 h-3" />
-              Show more
+              {t('message.showMore')}
             </>
           ) : (
             <>
               <ChevronUp className="w-3 h-3" />
-              Show less
+              {t('message.showLess')}
             </>
           )}
         </button>
@@ -286,25 +320,34 @@ const CompactStatusRow: React.FC<CompactStatusRowProps> = ({
   status,
   from,
   timestamp
-}) => (
-  <div className="flex items-center gap-3 px-4 py-2.5">
-    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${bgColor} border ${iconColor.replace('text-', 'border-')}/30`}>
-      {icon}
-    </div>
+}) => {
+  const { t } = useTranslation();
+  return (
+    <div className="flex items-center gap-3 px-4 py-2.5">
+      <div
+        className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 border"
+        style={{
+          backgroundColor: bgColor,
+          borderColor: `${iconColor}4D`, // 30% opacity
+        }}
+      >
+        {icon}
+      </div>
 
-    <div className="flex-1 min-w-0">
-      <div className="flex items-center gap-2">
-        <span className="text-xs text-gray-500">{label}</span>
-        <span className={`text-sm font-semibold ${iconColor} capitalize`}>{status}</span>
-      </div>
-      <div className="flex items-center gap-2 text-xs text-gray-600 mt-0.5">
-        <span className="font-medium text-gray-400">{from}</span>
-        <span>•</span>
-        <span title={formatFullTimestamp(timestamp)}>{formatTimestamp(timestamp)}</span>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span style={{ color: 'var(--text-muted)' }} className="text-xs">{label}</span>
+          <span className="text-sm font-semibold capitalize" style={{ color: iconColor }}>{status}</span>
+        </div>
+        <div className="flex items-center gap-2 text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+          <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>{from}</span>
+          <span>•</span>
+          <span title={formatFullTimestamp(timestamp)}>{formatTimestamp(timestamp, t)}</span>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 interface SmartMessageContentProps {
   message: Message;
@@ -318,14 +361,15 @@ const SmartMessageContent: React.FC<SmartMessageContentProps> = ({
   searchQuery
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(true);
+  const { t } = useTranslation();
 
   if (parsed.type === 'idle_notification') {
     return (
       <CompactStatusRow
-        icon={<CheckCircle className="w-4 h-4 text-green-500" />}
-        iconColor="text-green-400"
-        bgColor="bg-green-500/10"
-        label="Agent is now"
+        icon={<CheckCircle className="w-4 h-4" style={{ color: 'var(--accent-green)' }} />}
+        iconColor="var(--accent-green)"
+        bgColor="var(--accent-green-subtle)"
+        label={t('message.agentIsNow')}
         status={parsed.data?.idleReason || parsed.data?.status || 'available'}
         from={parsed.data?.from || message.sender}
         timestamp={parsed.data?.timestamp || message.timestamp}
@@ -340,18 +384,24 @@ const SmartMessageContent: React.FC<SmartMessageContentProps> = ({
 
     return (
       <div className="flex items-center gap-3 px-4 py-2.5">
-        <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-red-500/10 border border-red-500/30">
-          <Power className="w-4 h-4 text-red-500" />
+        <div
+          className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 border"
+          style={{
+            backgroundColor: 'var(--accent-red-subtle)',
+            borderColor: 'var(--accent-red-medium)',
+          }}
+        >
+          <Power className="w-4 h-4" style={{ color: 'var(--accent-red)' }} />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-red-400">Shutdown Approved</span>
-            {paneId && <span className="text-xs text-gray-500">({paneId})</span>}
+            <span className="text-sm font-semibold" style={{ color: 'var(--accent-red)' }}>{t('message.shutdownApproved')}</span>
+            {paneId && <span className="text-xs" style={{ color: 'var(--text-muted)' }}>({paneId})</span>}
           </div>
-          <div className="flex items-center gap-2 text-xs text-gray-600 mt-0.5">
-            <span className="font-medium text-gray-400">{from}</span>
+          <div className="flex items-center gap-2 text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+            <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>{from}</span>
             <span>•</span>
-            <span title={formatFullTimestamp(timestamp)}>{formatTimestamp(timestamp)}</span>
+            <span title={formatFullTimestamp(timestamp)}>{formatTimestamp(timestamp, t)}</span>
           </div>
         </div>
       </div>
@@ -365,8 +415,8 @@ const SmartMessageContent: React.FC<SmartMessageContentProps> = ({
     return (
       <div className="px-4 py-2.5">
         <div className="flex items-center gap-2 mb-1">
-          <Activity className="w-4 h-4 text-amber-500" />
-          <span className={`text-sm font-semibold ${getStatusColor(status)} capitalize`}>{status}</span>
+          <Activity className="w-4 h-4" style={{ color: 'var(--accent-amber)' }} />
+          <span className="text-sm font-semibold capitalize" style={{ color: getStatusColor(status) }}>{status}</span>
         </div>
         {statusMessage && statusMessage !== status && (
           <div className="pl-6">
@@ -386,21 +436,24 @@ const SmartMessageContent: React.FC<SmartMessageContentProps> = ({
     const task = parsed.data?.task || parsed.displayText;
     const priority = parsed.data?.priority;
 
-    const priorityClass = priority === 'high'
-      ? 'bg-red-500/10 text-red-400'
+    const priorityStyle: React.CSSProperties = priority === 'high'
+      ? { backgroundColor: 'var(--accent-red-subtle)', color: 'var(--accent-red)' }
       : priority === 'medium'
-        ? 'bg-yellow-500/10 text-yellow-400'
-        : 'bg-blue-500/10 text-blue-400';
+        ? { backgroundColor: 'var(--accent-amber-subtle)', color: 'var(--accent-amber)' }
+        : { backgroundColor: 'var(--accent-blue-subtle)', color: 'var(--accent-blue)' };
 
     return (
       <div className="px-4 py-2.5">
         <div className="flex items-start gap-2">
-          <FileText className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
+          <FileText className="w-4 h-4 mt-0.5 shrink-0" style={{ color: 'var(--accent-green)' }} />
           <div className="flex-1">
-            <div className="text-sm text-gray-400 mb-0.5">New Task</div>
-            <div className="text-sm font-medium text-gray-200">{task}</div>
+            <div className="text-sm mb-0.5" style={{ color: 'var(--text-muted)' }}>{t('message.newTask')}</div>
+            <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{task}</div>
             {priority && (
-              <span className={`inline-block mt-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium ${priorityClass}`}>
+              <span
+                className="inline-block mt-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium"
+                style={priorityStyle}
+              >
                 {priority}
               </span>
             )}
@@ -413,7 +466,14 @@ const SmartMessageContent: React.FC<SmartMessageContentProps> = ({
   if (parsed.type === 'json') {
     return (
       <div className="px-4 py-2">
-        <pre className="bg-gray-950/50 rounded p-2 overflow-x-auto text-xs font-mono text-gray-400 border border-gray-800/60">
+        <pre
+          className="rounded p-2 overflow-x-auto text-xs font-mono border"
+          style={{
+            backgroundColor: 'var(--bg-primary)',
+            color: 'var(--text-muted)',
+            borderColor: 'var(--border-primary)',
+          }}
+        >
           <code>{parsed.displayText}</code>
         </pre>
       </div>
@@ -433,6 +493,7 @@ const SmartMessageContent: React.FC<SmartMessageContentProps> = ({
 };
 
 export const MessageItem: React.FC<MessageItemProps> = ({ message, searchQuery, isLatest }) => {
+  const { t } = useTranslation();
   useTimeRefresh(10000);
   const itemRef = useRef<HTMLDivElement>(null);
 
@@ -496,22 +557,30 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, searchQuery, 
     <div
       ref={itemRef}
       className={`group relative rounded-lg border transition-all duration-200 overflow-hidden ${
-        isJustNow ? 'ring-2 ring-green-500/50 ring-offset-2 ring-offset-gray-950' : ''
+        isJustNow ? 'ring-2 ring-offset-2' : ''
       }`}
       style={{
-        backgroundColor: 'rgba(30, 41, 59, 0.4)',
+        backgroundColor: 'var(--bg-card)',
         borderColor: 'var(--border-primary)',
+        ...(isJustNow && {
+          ringColor: 'var(--accent-green)',
+          ringOpacity: '0.5',
+          ringOffsetColor: 'var(--bg-primary)',
+        }),
       }}
     >
       <div
         className="flex items-center justify-between px-3 py-1.5 border-b"
         style={{
           borderColor: 'var(--border-primary)',
-          backgroundColor: 'rgba(30, 41, 59, 0.3)',
+          backgroundColor: 'var(--bg-secondary)',
         }}
       >
         <div className="flex items-center gap-2">
-          <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${typeBadgeStyle}`}>
+          <span
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border"
+            style={typeBadgeStyle}
+          >
             {getMessageIcon(message.type)}
             {typeLabel}
           </span>
@@ -525,21 +594,28 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, searchQuery, 
         </div>
 
         <span
-          className="text-[10px] text-gray-500 whitespace-nowrap"
+          className="text-[10px] whitespace-nowrap"
+          style={{ color: 'var(--text-muted)' }}
           title={formatFullTimestamp(message.timestamp)}
         >
-          {formatTimestamp(message.timestamp)}
+          {formatTimestamp(message.timestamp, t)}
         </span>
       </div>
 
       <SmartMessageContent message={message} parsed={parsed} searchQuery={searchQuery} />
 
       {!isCompactType && message.metadata && (
-        <div className="px-4 py-2 space-y-1.5 border-t border-gray-800/30">
+        <div className="px-4 py-2 space-y-1.5 border-t" style={{ borderColor: 'var(--border-primary)' }}>
           {message.metadata.reportPath && (
             <div className="flex items-start gap-2 text-[10px]">
-              <span className="text-gray-500 font-medium shrink-0">Report:</span>
-              <code className="bg-gray-950 px-1.5 py-0.5 rounded text-gray-400 font-mono truncate text-[10px]">
+              <span className="font-medium shrink-0" style={{ color: 'var(--text-muted)' }}>Report:</span>
+              <code
+                className="px-1.5 py-0.5 rounded font-mono truncate text-[10px]"
+                style={{
+                  backgroundColor: 'var(--bg-primary)',
+                  color: 'var(--text-muted)',
+                }}
+              >
                 {message.metadata.reportPath}
               </code>
             </div>
@@ -547,11 +623,11 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, searchQuery, 
 
           {message.metadata.keyFindings && message.metadata.keyFindings.length > 0 && (
             <div className="text-[10px]">
-              <span className="text-gray-500 font-medium">Key Findings:</span>
+              <span className="font-medium" style={{ color: 'var(--text-muted)' }}>Key Findings:</span>
               <ul className="mt-0.5 space-y-0.5">
                 {message.metadata.keyFindings.map((finding: string, idx: number) => (
-                  <li key={idx} className="flex items-start gap-1.5 text-gray-400">
-                    <span className="text-gray-600">•</span>
+                  <li key={idx} className="flex items-start gap-1.5" style={{ color: 'var(--text-secondary)' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>•</span>
                     <span>{finding}</span>
                   </li>
                 ))}
@@ -561,13 +637,26 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, searchQuery, 
 
           {message.metadata.severity && (
             <span
-              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${
+              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border`}
+              style={
                 message.metadata.severity === 'high'
-                  ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                  ? {
+                      backgroundColor: 'var(--accent-red-subtle)',
+                      color: 'var(--accent-red)',
+                      borderColor: 'var(--accent-red-medium)',
+                    }
                   : message.metadata.severity === 'medium'
-                    ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'
-                    : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-              }`}
+                    ? {
+                        backgroundColor: 'var(--accent-amber-subtle)',
+                        color: 'var(--accent-amber)',
+                        borderColor: 'var(--accent-amber-medium)',
+                      }
+                    : {
+                        backgroundColor: 'var(--accent-blue-subtle)',
+                        color: 'var(--accent-blue)',
+                        borderColor: 'var(--accent-blue-medium)',
+                      }
+              }
             >
               {message.metadata.severity === 'high' && <AlertCircle className="w-2.5 h-2.5" />}
               {message.metadata.severity}

@@ -14,6 +14,7 @@ import { isSystemContent } from '../types';
 import { ActivityHeatmap } from './ActivityHeatmap';
 import { TrendChart } from './TrendChart';
 import { ActivityTimeline } from './ActivityTimeline';
+import { useTranslation } from '../hooks/useTranslation';
 
 interface DashboardProps {
   stats: DashboardStats | null;
@@ -59,7 +60,7 @@ const StatCard: React.FC<StatCardProps> = ({ icon, label, value, color }) => {
     <div
       className="p-4 rounded-lg border"
       style={{
-        backgroundColor: 'rgba(30, 41, 59, 0.5)',
+        backgroundColor: 'var(--bg-card)',
         borderColor: 'var(--border-primary)',
       }}
     >
@@ -91,11 +92,13 @@ interface SessionListItemProps {
 }
 
 const SessionListItem: React.FC<SessionListItemProps> = ({ session, onClick }) => {
+  const { t } = useTranslation();
+
   // Find the first non-system input
   const validInput = session.inputs.find(input => !isSystemContent(input.display));
   const title = validInput
     ? validInput.display.slice(0, 50) + (validInput.display.length > 50 ? '...' : '')
-    : 'Empty Session';
+    : t('session.emptySession');
 
   return (
     <button
@@ -111,13 +114,13 @@ const SessionListItem: React.FC<SessionListItemProps> = ({ session, onClick }) =
     >
       <div
         className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center"
-        style={{ backgroundColor: 'var(--bg-tertiary)' }}
+        style={{ backgroundColor: 'var(--bg-secondary)' }}
       >
         <MessageSquare className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
       </div>
       <div className="flex-1 min-w-0">
         <div
-          className="text-sm truncate group-hover:text-gray-200"
+          className="text-sm truncate group-hover:text-[var(--text-primary)]"
           style={{ color: 'var(--text-secondary)' }}
         >
           {title}
@@ -126,14 +129,14 @@ const SessionListItem: React.FC<SessionListItemProps> = ({ session, onClick }) =
           className="flex items-center gap-2 text-xs mt-0.5"
           style={{ color: 'var(--text-muted)' }}
         >
-          <span>{session.inputCount} inputs</span>
-          <span style={{ color: 'var(--text-tertiary)' }}>•</span>
+          <span>{session.inputCount} {t('session.inputs')}</span>
+          <span style={{ color: 'var(--text-muted)' }}>•</span>
           <span>{formatRelativeTime(session.updatedAt)}</span>
         </div>
       </div>
       <ArrowRight
         className="w-4 h-4 transition-colors"
-        style={{ color: 'var(--text-tertiary)' }}
+        style={{ color: 'var(--text-muted)' }}
       />
     </button>
   );
@@ -144,49 +147,53 @@ interface TeamListItemProps {
   onClick: () => void;
 }
 
-const TeamListItem: React.FC<TeamListItemProps> = ({ team, onClick }) => (
-  <button
-    onClick={onClick}
-    className="w-full flex items-center gap-3 p-3 rounded-lg transition-colors text-left group"
-    style={{ backgroundColor: 'transparent' }}
-    onMouseEnter={(e) => {
-      e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
-    }}
-    onMouseLeave={(e) => {
-      e.currentTarget.style.backgroundColor = 'transparent';
-    }}
-  >
-    <div
-      className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center border"
-      style={{
-        backgroundColor: 'rgba(139, 92, 246, 0.15)',
-        borderColor: 'rgba(139, 92, 246, 0.2)',
+const TeamListItem: React.FC<TeamListItemProps> = ({ team, onClick }) => {
+  const { t } = useTranslation();
+
+  return (
+    <button
+      onClick={onClick}
+      className="w-full flex items-center gap-3 p-3 rounded-lg transition-colors text-left group"
+      style={{ backgroundColor: 'transparent' }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.backgroundColor = 'transparent';
       }}
     >
-      <Users className="w-4 h-4" style={{ color: 'var(--accent-purple)' }} />
-    </div>
-    <div className="flex-1 min-w-0">
       <div
-        className="text-sm truncate group-hover:text-gray-200"
-        style={{ color: 'var(--text-secondary)' }}
+        className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center border"
+        style={{
+          backgroundColor: 'var(--bg-card)',
+          borderColor: 'var(--border-primary)',
+        }}
       >
-        {team.name}
+        <Users className="w-4 h-4" style={{ color: 'var(--accent-purple)' }} />
       </div>
-      <div
-        className="flex items-center gap-2 text-xs mt-0.5"
+      <div className="flex-1 min-w-0">
+        <div
+          className="text-sm truncate group-hover:text-[var(--text-primary)]"
+          style={{ color: 'var(--text-secondary)' }}
+        >
+          {team.name}
+        </div>
+        <div
+          className="flex items-center gap-2 text-xs mt-0.5"
+          style={{ color: 'var(--text-muted)' }}
+        >
+          <span>{team.memberCount} {t('team.members')}</span>
+          <span style={{ color: 'var(--text-muted)' }}>•</span>
+          <span>{team.messageCount} {t('team.messages')}</span>
+        </div>
+      </div>
+      <ArrowRight
+        className="w-4 h-4 transition-colors"
         style={{ color: 'var(--text-muted)' }}
-      >
-        <span>{team.memberCount} members</span>
-        <span style={{ color: 'var(--text-tertiary)' }}>•</span>
-        <span>{team.messageCount} messages</span>
-      </div>
-    </div>
-    <ArrowRight
-      className="w-4 h-4 transition-colors"
-      style={{ color: 'var(--text-tertiary)' }}
-    />
-  </button>
-);
+      />
+    </button>
+  );
+};
 
 const EmptyState: React.FC<{ icon: React.ReactNode; message: string }> = ({ icon, message }) => (
   <div
@@ -212,11 +219,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onViewTeam,
   onViewChange,
 }) => {
+  const { t } = useTranslation();
+
   if (!stats) {
     return (
       <EmptyState
         icon={<TrendingUp className="w-7 h-7 opacity-40" />}
-        message="Loading dashboard..."
+        message={t('empty.loadingDashboard')}
       />
     );
   }
@@ -231,13 +240,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
         className="px-6 py-4 border-b"
         style={{
           borderColor: 'var(--border-primary)',
-          backgroundColor: 'rgba(30, 41, 59, 0.5)',
+          backgroundColor: 'var(--bg-secondary)',
         }}
       >
         <div className="flex items-center gap-2">
           <TrendingUp className="w-5 h-5" style={{ color: 'var(--text-muted)' }} />
           <h1 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
-            Dashboard
+            {t('navigation.dashboard')}
           </h1>
         </div>
       </div>
@@ -247,25 +256,25 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <div className="grid grid-cols-4 gap-4">
           <StatCard
             icon={<List className="w-5 h-5" />}
-            label="Total Sessions"
+            label={t('dashboard.totalSessions')}
             value={stats.totalSessions}
             color="blue"
           />
           <StatCard
             icon={<FolderGit2 className="w-5 h-5" />}
-            label="Total Projects"
+            label={t('dashboard.totalProjects')}
             value={stats.totalProjects}
             color="green"
           />
           <StatCard
             icon={<Users className="w-5 h-5" />}
-            label="Total Teams"
+            label={t('dashboard.totalTeams')}
             value={stats.totalTeams}
             color="purple"
           />
           <StatCard
             icon={<MessageSquare className="w-5 h-5" />}
-            label="Total Messages"
+            label={t('dashboard.totalMessages')}
             value={stats.totalInputs}
             color="orange"
           />
@@ -292,7 +301,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
                 <h2 className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
-                  Recent Sessions
+                  {t('dashboard.recentSessions')}
                 </h2>
               </div>
               {onViewChange && (
@@ -301,7 +310,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   className="text-xs flex items-center gap-1"
                   style={{ color: 'var(--accent-blue)' }}
                 >
-                  View all
+                  {t('common.viewAll')}
                   <ArrowRight className="w-3 h-3" />
                 </button>
               )}
@@ -312,7 +321,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   className="text-center py-8"
                   style={{ color: 'var(--text-muted)' }}
                 >
-                  <p className="text-sm">No recent sessions</p>
+                  <p className="text-sm">{t('empty.noRecentSessions')}</p>
                 </div>
               ) : (
                 stats.recentSessions.map((session) => (
@@ -332,7 +341,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
                 <h2 className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
-                  Recent Teams
+                  {t('dashboard.recentTeams')}
                 </h2>
               </div>
               {onViewChange && (
@@ -341,7 +350,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   className="text-xs flex items-center gap-1"
                   style={{ color: 'var(--accent-purple)' }}
                 >
-                  View all
+                  {t('common.viewAll')}
                   <ArrowRight className="w-3 h-3" />
                 </button>
               )}
@@ -352,7 +361,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   className="text-center py-8"
                   style={{ color: 'var(--text-muted)' }}
                 >
-                  <p className="text-sm">No teams yet</p>
+                  <p className="text-sm">{t('team.noTeams')}</p>
                 </div>
               ) : (
                 stats.recentTeams.map((team) => (

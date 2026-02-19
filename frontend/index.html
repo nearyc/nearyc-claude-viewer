@@ -5,6 +5,14 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Claude Viewer</title>
+    <script>
+      // 无闪烁主题初始化（在 React 渲染前执行）
+      (function() {
+        const savedTheme = localStorage.getItem('claude-viewer-theme');
+        const theme = savedTheme || 'dark';
+        document.documentElement.setAttribute('data-theme', theme);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

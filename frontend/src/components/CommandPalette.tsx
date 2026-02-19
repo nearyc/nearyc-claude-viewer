@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { Search, LayoutDashboard, List, Users, FolderGit2, MessageSquare, RefreshCw, Command } from 'lucide-react';
+import { useTranslation } from '../hooks/useTranslation';
 import type { Command as CommandType } from '../hooks/useCommandPalette';
 
 interface CommandPaletteProps {
@@ -33,21 +34,21 @@ const getCommandIcon = (type: CommandType['type']) => {
   }
 };
 
-const getCommandCategory = (type: CommandType['type']): string => {
+const getCommandCategory = (type: CommandType['type'], t: (key: string) => string): string => {
   switch (type) {
     case 'navigate-dashboard':
     case 'navigate-sessions':
     case 'navigate-teams':
     case 'navigate-projects':
-      return 'Navigation';
+      return t('commandPalette.navigation');
     case 'open-session':
-      return 'Sessions';
+      return t('commandPalette.sessions');
     case 'open-team':
-      return 'Teams';
+      return t('commandPalette.teams');
     case 'refresh-data':
-      return 'Actions';
+      return t('commandPalette.actions');
     default:
-      return 'Other';
+      return t('commandPalette.other');
   }
 };
 
@@ -60,6 +61,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onSelectCommand,
   onClose,
 }) => {
+  const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const selectedRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -91,7 +93,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
   // Group commands by category
   const groupedCommands = commands.reduce((acc, command) => {
-    const category = getCommandCategory(command.type);
+    const category = getCommandCategory(command.type, t);
     if (!acc[category]) {
       acc[category] = [];
     }
@@ -130,7 +132,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             type="text"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Type a command or search..."
+            placeholder={t('commandPalette.placeholder')}
             className="flex-1 bg-transparent text-base outline-none"
             style={{ color: 'var(--text-primary)' }}
           />
@@ -155,7 +157,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
               className="px-4 py-8 text-center"
               style={{ color: 'var(--text-muted)' }}
             >
-              No commands found
+              {t('commandPalette.noResults')}
             </div>
           ) : (
             categories.map((category) => (
@@ -179,7 +181,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                       className="w-full px-4 py-2.5 flex items-center gap-3 text-left transition-colors"
                       style={{
                         backgroundColor: isSelected
-                          ? 'rgba(59, 130, 246, 0.15)'
+                          ? 'var(--bg-selected)'
                           : 'transparent',
                       }}
                       onMouseEnter={(e) => {
@@ -202,7 +204,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                           className="text-sm font-medium truncate"
                           style={{
                             color: isSelected
-                              ? 'var(--accent-blue-light)'
+                              ? 'var(--accent-blue)'
                               : 'var(--text-primary)',
                           }}
                         >
@@ -264,7 +266,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
               >
                 ↓
               </kbd>
-              <span>to navigate</span>
+              <span>{t('commandPalette.toNavigate')}</span>
             </span>
             <span className="flex items-center gap-1">
               <kbd
@@ -273,10 +275,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
               >
                 ↵
               </kbd>
-              <span>to select</span>
+              <span>{t('commandPalette.toSelect')}</span>
             </span>
           </div>
-          <span>{commands.length} commands</span>
+          <span>{t('commandPalette.commandCount', { count: commands.length })}</span>
         </div>
       </div>
     </div>

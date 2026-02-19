@@ -11,3 +11,5 @@ export { ConfirmDialog } from './ConfirmDialog';
 export { ResizablePanel, CollapsiblePanel } from './ResizablePanel';
 export { CommandPalette } from './CommandPalette';
 export { BatchActionBar } from './BatchActionBar';
+export { ThemeSwitcher } from './ThemeSwitcher';
+export { LanguageSwitcher } from './LanguageSwitcher';

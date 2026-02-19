@@ -1,5 +1,6 @@
 import React from 'react';
 import { AlertTriangle, X } from 'lucide-react';
+import { useTranslation } from '../hooks/useTranslation';
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -16,12 +17,16 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   isOpen,
   title,
   message,
-  confirmText = '确认',
-  cancelText = '取消',
+  confirmText,
+  cancelText,
   onConfirm,
   onCancel,
   isDestructive = true,
 }) => {
+  const { t } = useTranslation();
+
+  const defaultConfirmText = isDestructive ? t('common.delete') : t('common.confirm');
+  const defaultCancelText = t('common.cancel');
   if (!isOpen) return null;
 
   return (
@@ -101,7 +106,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
               e.currentTarget.style.backgroundColor = 'var(--bg-secondary)';
             }}
           >
-            {cancelText}
+            {cancelText ?? defaultCancelText}
           </button>
           <button
             onClick={onConfirm}
@@ -123,7 +128,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                 : 'var(--accent-blue)';
             }}
           >
-            {confirmText}
+            {confirmText ?? defaultConfirmText}
           </button>
         </div>
       </div>

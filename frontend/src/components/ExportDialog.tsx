@@ -7,6 +7,7 @@ import {
   copyToClipboard,
   type ExportFormat,
 } from '../utils/exportUtils';
+import { useTranslation } from '../hooks/useTranslation';
 
 interface ExportDialogProps {
   session: Session;
@@ -16,29 +17,29 @@ interface ExportDialogProps {
 
 interface FormatOption {
   value: ExportFormat;
-  label: string;
+  labelKey: string;
   icon: React.ReactNode;
-  description: string;
+  descriptionKey: string;
 }
 
-const FORMAT_OPTIONS: FormatOption[] = [
+const getFormatOptions = (t: (key: string) => string): FormatOption[] => [
   {
     value: 'markdown',
-    label: 'Markdown',
+    labelKey: t('export.format.markdown'),
     icon: <FileText className="w-5 h-5" />,
-    description: '格式化为可读的 Markdown 文档',
+    descriptionKey: t('export.format.markdownDesc'),
   },
   {
     value: 'json',
-    label: 'JSON',
+    labelKey: t('export.format.json'),
     icon: <FileJson className="w-5 h-5" />,
-    description: '导出完整的数据结构',
+    descriptionKey: t('export.format.jsonDesc'),
   },
   {
     value: 'html',
-    label: 'HTML',
+    labelKey: t('export.format.html'),
     icon: <FileCode className="w-5 h-5" />,
-    description: '带样式的网页格式',
+    descriptionKey: t('export.format.htmlDesc'),
   },
 ];
 
@@ -47,11 +48,14 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
   isOpen,
   onClose,
 }) => {
+  const { t } = useTranslation();
   const [selectedFormat, setSelectedFormat] = useState<ExportFormat>('markdown');
   const [includeMetadata, setIncludeMetadata] = useState(true);
   const [includeTimestamps, setIncludeTimestamps] = useState(true);
   const [copied, setCopied] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+
+  const formatOptions = getFormatOptions(t);
 
   if (!isOpen) return null;
 
@@ -68,7 +72,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
       downloadFile(content, filename, mimeType);
     } catch (error) {
       console.error('Export failed:', error);
-      alert('导出失败，请重试');
+      alert(t('session.exportError'));
     } finally {
       setIsExporting(false);
     }
@@ -98,7 +102,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
     // Truncate for preview
     const maxLength = 500;
     if (content.length <= maxLength) return content;
-    return content.slice(0, maxLength) + '\n\n... (预览已截断)';
+    return content.slice(0, maxLength) + '\n\n... (' + t('export.previewTruncated') + ')';
   };
 
   return (
@@ -120,7 +124,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
         <div
           className="flex items-center justify-between px-5 py-4 border-b"
           style={{
-            backgroundColor: 'rgba(30, 41, 59, 0.5)',
+            backgroundColor: 'var(--bg-tertiary)',
             borderColor: 'var(--border-primary)',
           }}
         >
@@ -130,7 +134,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
               className="text-lg font-semibold"
               style={{ color: 'var(--text-primary)' }}
             >
-              导出会话
+              {t('export.title')}
             </h2>
           </div>
           <button
@@ -156,10 +160,10 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
               className="block text-sm font-medium mb-3"
               style={{ color: 'var(--text-secondary)' }}
             >
-              选择格式
+              {t('export.selectFormat')}
             </label>
             <div className="grid grid-cols-3 gap-3">
-              {FORMAT_OPTIONS.map((option) => (
+              {formatOptions.map((option) => (
                 <button
                   key={option.value}
                   onClick={() => setSelectedFormat(option.value)}
@@ -180,12 +184,12 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
                   }}
                 >
                   {option.icon}
-                  <span className="text-sm font-medium">{option.label}</span>
+                  <span className="text-sm font-medium">{option.labelKey}</span>
                   <span
                     className="text-xs text-center"
                     style={{ color: 'var(--text-muted)' }}
                   >
-                    {option.description}
+                    {option.descriptionKey}
                   </span>
                 </button>
               ))}
@@ -198,7 +202,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
               className="block text-sm font-medium mb-3"
               style={{ color: 'var(--text-secondary)' }}
             >
-              导出选项
+              {t('export.options')}
             </label>
             <div className="space-y-3">
               <label className="flex items-center gap-3 cursor-pointer">
@@ -206,13 +210,14 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
                   type="checkbox"
                   checked={includeMetadata}
                   onChange={(e) => setIncludeMetadata(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-600"
+                  className="w-4 h-4 rounded"
                   style={{
                     accentColor: 'var(--accent-blue)',
+                    borderColor: 'var(--border-primary)',
                   }}
                 />
                 <span style={{ color: 'var(--text-secondary)' }}>
-                  包含会话元数据（ID、项目、统计信息）
+                  {t('export.includeMetadata')}
                 </span>
               </label>
               <label className="flex items-center gap-3 cursor-pointer">
@@ -220,13 +225,14 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
                   type="checkbox"
                   checked={includeTimestamps}
                   onChange={(e) => setIncludeTimestamps(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-600"
+                  className="w-4 h-4 rounded"
                   style={{
                     accentColor: 'var(--accent-blue)',
+                    borderColor: 'var(--border-primary)',
                   }}
                 />
                 <span style={{ color: 'var(--text-secondary)' }}>
-                  包含时间戳
+                  {t('export.includeTimestamps')}
                 </span>
               </label>
             </div>
@@ -238,7 +244,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
               className="block text-sm font-medium mb-3"
               style={{ color: 'var(--text-secondary)' }}
             >
-              预览
+              {t('export.preview')}
             </label>
             <pre
               className="p-4 rounded-lg text-xs overflow-auto max-h-40"
@@ -257,7 +263,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
         <div
           className="flex items-center justify-end gap-3 px-5 py-4 border-t"
           style={{
-            backgroundColor: 'rgba(30, 41, 59, 0.3)',
+            backgroundColor: 'var(--bg-tertiary)',
             borderColor: 'var(--border-primary)',
           }}
         >
@@ -279,12 +285,12 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
             {copied ? (
               <>
                 <Check className="w-4 h-4" />
-                已复制
+                {t('common.copied')}
               </>
             ) : (
               <>
                 <Copy className="w-4 h-4" />
-                复制到剪贴板
+                {t('export.copyToClipboard')}
               </>
             )}
           </button>
@@ -294,7 +300,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
             style={{
               backgroundColor: 'var(--accent-blue)',
-              color: 'white',
+              color: 'var(--text-on-accent)',
             }}
             onMouseEnter={(e) => {
               if (!isExporting) {
@@ -306,7 +312,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
             }}
           >
             <Download className="w-4 h-4" />
-            {isExporting ? '导出中...' : '下载文件'}
+            {isExporting ? t('common.exporting') : t('export.downloadFile')}
           </button>
         </div>
       </div>
