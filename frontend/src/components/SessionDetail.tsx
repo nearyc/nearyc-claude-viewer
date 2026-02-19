@@ -162,8 +162,98 @@ export const SessionDetail: React.FC<SessionDetailProps> = ({ session, isUpdatin
           backgroundColor: 'var(--bg-secondary)',
         }}
       >
-        {/* Title row */}
-        <SessionHeader isUpdating={isUpdating} />
+        {/* Title row with Favorite and Tags */}
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <SessionHeader isUpdating={isUpdating} />
+
+          {/* Favorite and Tags - Right side */}
+          <div className="flex items-center gap-3 max-w-[400px]">
+            {/* Favorite / Custom Name button */}
+            {isEditingName ? (
+              <div className="flex items-center gap-1">
+                <input
+                  type="text"
+                  value={customNameInput}
+                  onChange={(e) => setCustomNameInput(e.target.value)}
+                  placeholder={t('session.customName.placeholder')}
+                  className="px-2 py-1 text-sm rounded border focus:outline-none w-32"
+                  style={{
+                    backgroundColor: 'var(--bg-primary)',
+                    borderColor: 'var(--border-primary)',
+                    color: 'var(--text-primary)',
+                  }}
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      setSessionName(session.sessionId, customNameInput);
+                      setIsEditingName(false);
+                    } else if (e.key === 'Escape') {
+                      setIsEditingName(false);
+                    }
+                  }}
+                />
+                <button
+                  onClick={() => {
+                    setSessionName(session.sessionId, customNameInput);
+                    setIsEditingName(false);
+                  }}
+                  className="p-1"
+                  style={{ color: 'var(--accent-green)' }}
+                >
+                  <Check className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setIsEditingName(false)}
+                  className="p-1"
+                  style={{ color: 'var(--text-muted)' }}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => {
+                  if (isSessionStarred) {
+                    setCustomNameInput(sessionCustomName || '');
+                    setIsEditingName(true);
+                  } else {
+                    setSessionName(session.sessionId, t('session.customName.star'));
+                  }
+                }}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setCustomNameInput(sessionCustomName || '');
+                  setIsEditingName(true);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-all whitespace-nowrap border"
+                style={{
+                  color: isSessionStarred ? 'var(--accent-amber)' : 'var(--text-secondary)',
+                  backgroundColor: isSessionStarred ? 'var(--accent-amber-subtle)' : 'transparent',
+                  borderColor: isSessionStarred ? 'var(--accent-amber-medium)' : 'var(--border-primary)',
+                }}
+                title={isSessionStarred ? sessionCustomName || t('session.customName.star') : t('session.customName.star')}
+              >
+                <Star className="w-4 h-4" fill={isSessionStarred ? 'currentColor' : 'none'} />
+                <span className="max-w-[100px] truncate">
+                  {isSessionStarred ? (sessionCustomName || t('session.customName.star')) : t('session.customName.star')}
+                </span>
+                {isSessionStarred && <Edit3 className="w-3 h-3 opacity-60" />}
+              </button>
+            )}
+
+            {/* Tags selector */}
+            <div className="w-[200px] min-w-0">
+              <TagSelector
+                tags={sessionTags}
+                availableTags={allTags}
+                onAddTag={(tag) => addTag(session.sessionId, tag)}
+                onRemoveTag={(tag) => removeTag(session.sessionId, tag)}
+                placeholder={t('tag.add')}
+                compact
+              />
+            </div>
+          </div>
+        </div>
 
         {/* Meta info */}
         <SessionMeta
@@ -175,94 +265,6 @@ export const SessionDetail: React.FC<SessionDetailProps> = ({ session, isUpdatin
           hasFullConversation={hasFullConversation}
           onExport={() => setIsExportOpen(true)}
         />
-
-        {/* Favorite and Tags row */}
-        <div className="flex items-start gap-3 pt-3 mt-3 border-t" style={{ borderColor: 'var(--border-primary)' }}>
-          {/* Favorite / Custom Name button */}
-          {isEditingName ? (
-            <div className="flex items-center gap-1 w-1/2">
-              <input
-                type="text"
-                value={customNameInput}
-                onChange={(e) => setCustomNameInput(e.target.value)}
-                placeholder={t('session.customName.placeholder')}
-                className="px-2 py-1 text-sm rounded border focus:outline-none w-32"
-                style={{
-                  backgroundColor: 'var(--bg-primary)',
-                  borderColor: 'var(--border-primary)',
-                  color: 'var(--text-primary)',
-                }}
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    setSessionName(session.sessionId, customNameInput);
-                    setIsEditingName(false);
-                  } else if (e.key === 'Escape') {
-                    setIsEditingName(false);
-                  }
-                }}
-              />
-              <button
-                onClick={() => {
-                  setSessionName(session.sessionId, customNameInput);
-                  setIsEditingName(false);
-                }}
-                className="p-1"
-                style={{ color: 'var(--accent-green)' }}
-              >
-                <Check className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setIsEditingName(false)}
-                className="p-1"
-                style={{ color: 'var(--text-muted)' }}
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => {
-                if (isSessionStarred) {
-                  setCustomNameInput(sessionCustomName || '');
-                  setIsEditingName(true);
-                } else {
-                  setSessionName(session.sessionId, t('session.customName.star'));
-                }
-              }}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                setCustomNameInput(sessionCustomName || '');
-                setIsEditingName(true);
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-all w-full justify-center border"
-              style={{
-                color: isSessionStarred ? 'var(--accent-amber)' : 'var(--text-secondary)',
-                backgroundColor: isSessionStarred ? 'var(--accent-amber-subtle)' : 'transparent',
-                borderColor: isSessionStarred ? 'var(--accent-amber-medium)' : 'var(--border-primary)',
-              }}
-              title={isSessionStarred ? sessionCustomName || t('session.customName.star') : t('session.customName.star')}
-            >
-              <Star className="w-4 h-4" fill={isSessionStarred ? 'currentColor' : 'none'} />
-              <span className="max-w-[120px] truncate">
-                {isSessionStarred ? (sessionCustomName || t('session.customName.star')) : t('session.customName.star')}
-              </span>
-              {isSessionStarred && <Edit3 className="w-3 h-3 opacity-60" />}
-            </button>
-          )}
-
-          {/* Tags selector */}
-          <div className="w-1/2 min-w-0">
-            <TagSelector
-              tags={sessionTags}
-              availableTags={allTags}
-              onAddTag={(tag) => addTag(session.sessionId, tag)}
-              onRemoveTag={(tag) => removeTag(session.sessionId, tag)}
-              placeholder={t('tag.add')}
-              compact
-            />
-          </div>
-        </div>
       </div>
 
       {/* Navigation Bar */}
