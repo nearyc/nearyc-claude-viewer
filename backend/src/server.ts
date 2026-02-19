@@ -86,7 +86,8 @@ const limiter = rateLimit({
 function getCorsOrigins(): string[] {
   const corsOrigin = process.env.CORS_ORIGIN;
   if (!corsOrigin) {
-    // Allow common Vite dev server ports
+    // Allow common Vite dev server ports + any origin (for Tailscale/mobile access)
+    // In production, restrict this to specific domains
     return ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175'];
   }
   // Support comma-separated list of origins
@@ -148,7 +149,7 @@ export function createServerInstance(): ServerInstance {
   // Rate limiting
   app.use(limiter);
 
-  // CORS configuration with strict origin validation
+  // CORS configuration - allows localhost dev servers and Tailscale network
   const allowedOrigins = getCorsOrigins();
   app.use(cors({
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
@@ -158,11 +159,26 @@ export function createServerInstance(): ServerInstance {
         return;
       }
 
+      // Allow configured origins
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
-      } else {
-        callback(new Error(`CORS policy does not allow access from origin: ${origin}`));
+        return;
       }
+
+      // Allow Tailscale IP range (100.64.0.0/10) for mobile access
+      // Tailscale assigns IPs in the 100.64.0.0 - 100.127.255.255 range
+      if (origin.match(/^https?:\/\/100\.(6[4-9]|[7-9]\d|1[0-1]\d|12[0-7])\.\d{1,3}\.\d{1,3}(:\d+)?$/)) {
+        callback(null, true);
+        return;
+      }
+
+      // Allow any localhost origin for development
+      if (origin.match(/^https?:\/\/localhost(:\d+)?$/)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error(`CORS policy does not allow access from origin: ${origin}`));
     },
     credentials: true,
   }));
