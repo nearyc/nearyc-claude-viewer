@@ -112,7 +112,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
 
     return parts.map((part, i) =>
       part.toLowerCase() === searchQuery.toLowerCase() ? (
-        <mark key={i} className="bg-yellow-500/30 text-yellow-200 px-0.5 rounded">
+        <mark key={i} className="px-0.5 rounded" style={{ backgroundColor: 'var(--accent-amber-medium)', color: 'var(--text-primary)' }}>
           {part}
         </mark>
       ) : (
@@ -138,26 +138,34 @@ export const MessageItem: React.FC<MessageItemProps> = ({
       >
         {/* Avatar */}
         <div
-          className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-            isUser
-              ? 'bg-blue-600/20 text-blue-400 border border-blue-600/30'
-              : 'bg-purple-600/20 text-purple-400 border border-purple-600/30'
-          }`}
+          className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center border"
+          style={{
+            backgroundColor: isUser ? 'var(--accent-blue-subtle)' : 'var(--accent-purple-subtle)',
+            color: isUser ? 'var(--accent-blue)' : 'var(--accent-purple)',
+            borderColor: isUser ? 'var(--accent-blue-medium)' : 'var(--accent-purple-medium)',
+          }}
         >
           {isUser ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
         </div>
 
         {/* Message Bubble */}
         <div
-          className={`rounded-2xl px-4 py-3 relative group ${
-            isUser
-              ? 'bg-blue-600/20 border border-blue-600/30 rounded-tr-sm'
-              : 'bg-gray-800/80 border border-gray-700 rounded-tl-sm'
-          } ${isStreaming ? 'ring-2 ring-purple-500/50 ring-offset-2 ring-offset-gray-950' : ''} ${
-            searchQuery && message.content.toLowerCase().includes(searchQuery.toLowerCase())
-              ? 'ring-2 ring-yellow-500/30'
-              : ''
-          } ${isJustNow ? 'ring-2 ring-green-500/50 ring-offset-2 ring-offset-gray-950' : ''}`}
+          className="rounded-2xl px-4 py-3 relative group"
+          style={{
+            backgroundColor: isUser ? 'var(--accent-blue-subtle)' : 'var(--bg-card)',
+            borderColor: isUser ? 'var(--accent-blue-medium)' : 'var(--border-primary)',
+            borderWidth: '1px',
+            borderRadius: isUser ? '1rem 1rem 0.25rem 1rem' : '1rem 1rem 1rem 0.25rem',
+            ...(isStreaming ? {
+              boxShadow: '0 0 0 2px var(--accent-purple-medium)',
+            } : {}),
+            ...(searchQuery && message.content.toLowerCase().includes(searchQuery.toLowerCase()) ? {
+              boxShadow: '0 0 0 2px var(--accent-amber-medium)',
+            } : {}),
+            ...(isJustNow ? {
+              boxShadow: '0 0 0 2px var(--accent-green)',
+            } : {}),
+          }}
         >
           {/* Role Label & Actions */}
           <div
@@ -166,20 +174,19 @@ export const MessageItem: React.FC<MessageItemProps> = ({
             }`}
           >
             <span
-              className={`text-xs font-medium ${
-                isUser ? 'text-blue-400' : 'text-purple-400'
-              }`}
+              className="text-xs font-medium"
+              style={{ color: isUser ? 'var(--accent-blue-light)' : 'var(--accent-purple)' }}
             >
               {isUser ? 'You' : 'Claude'}
             </span>
             {isStreaming && (
-              <span className="flex items-center gap-1 text-xs text-purple-400">
+              <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--accent-purple)' }}>
                 <Sparkles className="w-3 h-3 animate-pulse" />
                 typing...
               </span>
             )}
-            <span className="text-xs text-gray-600">•</span>
-            <span className="text-xs text-gray-500">
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>•</span>
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
               {formatRelativeTime(message.timestamp)}
             </span>
 
@@ -188,8 +195,21 @@ export const MessageItem: React.FC<MessageItemProps> = ({
               <button
                 onClick={() => onToggleBookmark(message.uuid)}
                 className={`ml-1 opacity-0 group-hover:opacity-100 transition-opacity ${
-                  isBookmarked ? 'opacity-100 text-yellow-400' : 'text-gray-500 hover:text-yellow-400'
+                  isBookmarked ? 'opacity-100' : ''
                 }`}
+                style={{
+                  color: isBookmarked ? 'var(--accent-amber)' : 'var(--text-muted)',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isBookmarked) {
+                    e.currentTarget.style.color = 'var(--accent-amber)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isBookmarked) {
+                    e.currentTarget.style.color = 'var(--text-muted)';
+                  }
+                }}
                 title={isBookmarked ? 'Remove bookmark' : 'Add bookmark'}
               >
                 {isBookmarked ? (
@@ -203,9 +223,8 @@ export const MessageItem: React.FC<MessageItemProps> = ({
 
           {/* Content */}
           <div
-            className={`text-sm whitespace-pre-wrap break-words ${
-              isUser ? 'text-gray-200' : 'text-gray-300'
-            }`}
+            className="text-sm whitespace-pre-wrap break-words"
+            style={{ color: 'var(--text-secondary)' }}
           >
             {renderContent()}
           </div>
@@ -214,7 +233,10 @@ export const MessageItem: React.FC<MessageItemProps> = ({
           {shouldCollapse && (
             <button
               onClick={handleToggleCollapse}
-              className="mt-2 text-xs text-gray-500 hover:text-gray-300 flex items-center gap-1 transition-colors"
+              className="mt-2 text-xs flex items-center gap-1 transition-colors"
+              style={{ color: 'var(--text-muted)' }}
+              onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
+              onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
             >
               {isCollapsed ? (
                 <>
