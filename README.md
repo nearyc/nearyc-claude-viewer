@@ -14,7 +14,7 @@ An integrated monitoring dashboard for Claude Code Sessions and Agent Teams.
   - Tag system with filtering
   - Batch operations (delete, export)
   - Smart filter bar with saved filters
-  - One-click open in Claude Code / VS Code
+  - One-click open in Claude Code / VS Code (see [VSCode Plugin](#vscode-plugin))
 - **Projects**: Organize sessions by project
 - **Teams**: Monitor Agent Teams and member messages
   - Real-time message updates
@@ -78,6 +78,18 @@ claude-viewer/
 
 Switch via sidebar bottom buttons or `Cmd/Ctrl + K`.
 
+## VSCode Plugin
+
+The "Open in VSCode" feature requires the [VSCode Claude Code Launcher](https://github.com/nearyc/vscode-claude-code-launcher) plugin to be installed.
+
+- **Install**: Search for "Claude Code Launcher" in VSCode Extensions marketplace
+- **Or visit**: https://github.com/nearyc/vscode-claude-code-launcher
+
+This plugin enables deep linking from Claude Viewer to VSCode, allowing you to:
+- Open sessions directly in VSCode with Claude Code
+- Auto-resume specific sessions
+- Navigate to the correct project directory
+
 ## API
 
 | Method | Path | Description |
@@ -112,7 +124,7 @@ Claude Viewer 是一个集成的监控面板，用于查看 Claude Code 的 Sess
   - 标签系统与筛选
   - 批量操作（删除、导出）
   - 智能筛选栏与保存的筛选条件
-  - 一键在 Claude Code / VS Code 中打开
+  - 一键在 Claude Code / VS Code 中打开（需安装 [VSCode 插件](#vscode-插件)）
 - **项目**: 按项目组织会话
 - **团队**: 监控 Agent Teams 和成员消息
   - 实时消息更新
@@ -175,6 +187,18 @@ claude-viewer/
 | 浅色护眼 | `lightEyeCare` | 浅色暖奶油色背景 |
 
 通过左下角按钮或 `Cmd/Ctrl + K` 切换。
+
+## VSCode 插件
+
+"在 VSCode 中打开" 功能需要安装 [VSCode Claude Code Launcher](https://github.com/nearyc/vscode-claude-code-launcher) 插件。
+
+- **安装方式**: 在 VSCode 扩展市场中搜索 "Claude Code Launcher"
+- **或访问**: https://github.com/nearyc/vscode-claude-code-launcher
+
+此插件支持从 Claude Viewer 直接跳转到 VSCode，实现以下功能：
+- 在 VSCode 中直接使用 Claude Code 打开会话
+- 自动恢复指定会话
+- 自动导航到正确的项目目录
 
 ## API 接口
 

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { FolderOpen, Hash, Copy, Check, Terminal, Download, ExternalLink } from 'lucide-react';
+import React, { useState } from 'react';
+import { FolderOpen, Hash, Copy, Check, Terminal, Download } from 'lucide-react';
 import { formatRelativeTime } from '../../../utils/time';
 import { useTranslation } from '../../../hooks/useTranslation';
 
@@ -13,8 +13,6 @@ interface SessionMetaProps {
   onExport: () => void;
 }
 
-const PLUGIN_GITHUB_URL = 'https://github.com/nearyc/vscode-claude-code-launcher';
-
 export const SessionMeta: React.FC<SessionMetaProps> = ({
   sessionId,
   project,
@@ -26,8 +24,6 @@ export const SessionMeta: React.FC<SessionMetaProps> = ({
 }) => {
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
-  const [showPluginPrompt, setShowPluginPrompt] = useState(false);
-  const vscodeCheckRef = useRef<number | null>(null);
 
   const handleCopySessionId = () => {
     navigator.clipboard.writeText(sessionId);
@@ -48,38 +44,8 @@ export const SessionMeta: React.FC<SessionMetaProps> = ({
     const encodedPath = encodeURIComponent(project);
     const encodedSession = encodeURIComponent(sessionId);
     const vscodeUri = `vscode://your-name.claude-code-launcher/open?path=${encodedPath}&session=${encodedSession}`;
-
-    // Try to open VSCode
-    window.location.href = vscodeUri;
-
-    // Check if VSCode opened after a short delay
-    // If the page is still visible, likely the plugin is not installed
-    vscodeCheckRef.current = window.setTimeout(() => {
-      setShowPluginPrompt(true);
-    }, 500);
+    window.open(vscodeUri, '_self');
   };
-
-  const handleClosePrompt = () => {
-    setShowPluginPrompt(false);
-    if (vscodeCheckRef.current) {
-      clearTimeout(vscodeCheckRef.current);
-      vscodeCheckRef.current = null;
-    }
-  };
-
-  const handleOpenGitHub = () => {
-    window.open(PLUGIN_GITHUB_URL, '_blank');
-    handleClosePrompt();
-  };
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (vscodeCheckRef.current) {
-        clearTimeout(vscodeCheckRef.current);
-      }
-    };
-  }, []);
 
   return (
     <div className="space-y-3">
@@ -164,54 +130,6 @@ export const SessionMeta: React.FC<SessionMetaProps> = ({
         </div>
       </div>
 
-      {/* Plugin Install Prompt Modal */}
-      {showPluginPrompt && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
-          onClick={handleClosePrompt}
-        >
-          <div
-            className="max-w-sm w-full rounded-lg p-6 shadow-xl"
-            style={{
-              backgroundColor: 'var(--bg-secondary)',
-              border: '1px solid var(--border-primary)',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3
-              className="text-lg font-semibold mb-3"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              {t('session.vscodePluginRequired') || 'VSCode 插件未安装'}
-            </h3>
-            <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
-              {t('session.vscodePluginPrompt') ||
-                '未检测到 VSCode Claude Code Launcher 插件。请安装插件后重试，或访问 GitHub 了解更多信息。'}
-            </p>
-            <div className="flex items-center justify-end gap-3">
-              <button
-                onClick={handleClosePrompt}
-                className="px-4 py-2 text-sm rounded-md transition-colors"
-                style={{ color: 'var(--text-secondary)' }}
-              >
-                {t('common.cancel') || '取消'}
-              </button>
-              <button
-                onClick={handleOpenGitHub}
-                className="flex items-center gap-2 px-4 py-2 text-sm rounded-md transition-colors"
-                style={{
-                  backgroundColor: 'var(--accent-blue)',
-                  color: '#fff',
-                }}
-              >
-                <ExternalLink className="w-4 h-4" />
-                {t('session.openGitHub') || '查看 GitHub'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
