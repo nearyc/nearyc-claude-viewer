@@ -82,8 +82,7 @@ Switch via sidebar bottom buttons or `Cmd/Ctrl + K`.
 
 The "Open in VSCode" feature requires the [VSCode Claude Code Launcher](https://github.com/nearyc/vscode-claude-code-launcher) plugin to be installed.
 
-- **Install**: Search for "Claude Code Launcher" in VSCode Extensions marketplace
-- **Or visit**: https://github.com/nearyc/vscode-claude-code-launcher
+- **Install from GitHub**: https://github.com/nearyc/vscode-claude-code-launcher
 
 This plugin enables deep linking from Claude Viewer to VSCode, allowing you to:
 - Open sessions directly in VSCode with Claude Code
@@ -192,8 +191,7 @@ claude-viewer/
 
 "在 VSCode 中打开" 功能需要安装 [VSCode Claude Code Launcher](https://github.com/nearyc/vscode-claude-code-launcher) 插件。
 
-- **安装方式**: 在 VSCode 扩展市场中搜索 "Claude Code Launcher"
-- **或访问**: https://github.com/nearyc/vscode-claude-code-launcher
+- **从 GitHub 安装**: https://github.com/nearyc/vscode-claude-code-launcher
 
 此插件支持从 Claude Viewer 直接跳转到 VSCode，实现以下功能：
 - 在 VSCode 中直接使用 Claude Code 打开会话
