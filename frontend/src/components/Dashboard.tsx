@@ -290,8 +290,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
         {/* Visualization Section - Mobile: stacked, Desktop: side by side */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-          <ActivityHeatmap sessions={stats.recentSessions} days={isMobile ? 60 : 90} />
-          <TrendChart sessions={stats.recentSessions} days={isMobile ? 7 : 14} />
+          <ActivityHeatmap sessions={stats.allSessions} days={isMobile ? 60 : 90} />
+          <TrendChart sessions={stats.allSessions} days={isMobile ? 7 : 14} />
         </div>
 
         {/* Activity Timeline */}

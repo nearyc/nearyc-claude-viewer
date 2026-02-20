@@ -25,17 +25,25 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
     const now = new Date();
     const data: ActivityData[] = [];
 
+    // Helper to format date as YYYY-MM-DD using local time (consistent with backend)
+    const formatLocalDate = (date: Date): string => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
     // Initialize all days with 0
     for (let i = days - 1; i >= 0; i--) {
       const date = new Date(now);
       date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = formatLocalDate(date);
       data.push({ date: dateStr, count: 0, level: 0 });
     }
 
-    // Count sessions per day
+    // Count sessions per day (using local time to match backend)
     sessions.forEach((session) => {
-      const dateStr = new Date(session.createdAt).toISOString().split('T')[0];
+      const dateStr = formatLocalDate(new Date(session.createdAt));
       const dayData = data.find((d) => d.date === dateStr);
       if (dayData) {
         dayData.count++;

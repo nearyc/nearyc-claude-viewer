@@ -5,7 +5,7 @@ import type { Team, TeamWithInboxes, Message, ApiResponse } from '../types';
 const API_BASE = '/api';
 
 // Teams polling constants
-const DEFAULT_TEAMS_POLL_INTERVAL_MS = 5000; // 5 seconds
+const DEFAULT_TEAMS_POLL_INTERVAL_MS = 10000; // 10 seconds
 
 export function useTeams(pollInterval: number = DEFAULT_TEAMS_POLL_INTERVAL_MS) {
   const [teams, setTeams] = useState<Team[]>([]);

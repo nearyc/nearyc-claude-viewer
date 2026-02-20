@@ -4,13 +4,18 @@ import type { Session, Project, DashboardStats, ApiResponse, Team } from '../typ
 
 const API_BASE = '/api';
 
-export function useSessions() {
+// Default polling interval: 10 seconds
+const DEFAULT_POLL_INTERVAL_MS = 10000;
+
+export function useSessions(pollInterval: number = DEFAULT_POLL_INTERVAL_MS) {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchSessions = useCallback(async (forceRefresh = false) => {
-    setLoading(true);
+  const fetchSessions = useCallback(async (forceRefresh = false, silent = false) => {
+    if (!silent) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const response = await axios.get<ApiResponse<Session[]>>(`${API_BASE}/sessions`, {
@@ -27,13 +32,27 @@ export function useSessions() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch sessions');
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, []);
 
+  // Initial fetch
   useEffect(() => {
     fetchSessions(false);
   }, [fetchSessions]);
+
+  // Polling for sessions list updates
+  useEffect(() => {
+    if (pollInterval <= 0) return;
+
+    const intervalId = setInterval(() => {
+      fetchSessions(true, true); // force refresh, silent mode
+    }, pollInterval);
+
+    return () => clearInterval(intervalId);
+  }, [pollInterval, fetchSessions]);
 
   return { sessions, loading, error, refetch: () => fetchSessions(true), setSessions };
 }
@@ -145,6 +164,7 @@ export function useDashboardStats() {
           totalMembers,
           recentSessions: sessions.slice(0, 10).sort((a, b) => b.updatedAt - a.updatedAt),
           recentTeams: teams.slice(0, 5),
+          allSessions: sessions, // Include all sessions for activity charts
         };
 
         setStats(calculatedStats);

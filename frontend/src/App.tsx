@@ -48,13 +48,13 @@ function AppContent() {
   // Decode project path from URL
   const decodedProjectPath = selectedProject ? decodeURIComponent(selectedProject) : null;
 
-  // Fetch data
-  const { sessions: fetchedSessions, refetch: refetchSessions, loading: sessionsLoading } = useSessions();
+  // Fetch data with 10s polling instead of SSE
+  const { sessions: fetchedSessions, refetch: refetchSessions, loading: sessionsLoading } = useSessions(10000);
   const { projects: fetchedProjects, refetch: refetchProjects } = useProjects();
   const { stats: fetchedStats, refetch: refetchStats } = useDashboardStats();
-  const { teams: fetchedTeams, refetch: refetchTeams, loading: teamsLoading } = useTeams(5000); // 5s polling for team/member changes
-  const { session: selectedSession, refetch: refetchSelectedSession } = useSession(selectedSessionId, 0, true);
-  const { team: fetchedTeamData } = useTeam(selectedTeamId, 5000); // 5s polling for real-time updates
+  const { teams: fetchedTeams, refetch: refetchTeams, loading: teamsLoading } = useTeams(10000); // 10s polling
+  const { session: selectedSession, refetch: refetchSelectedSession } = useSession(selectedSessionId, 10000, true);
+  const { team: fetchedTeamData } = useTeam(selectedTeamId, 10000); // 10s polling
 
   // SSE connection state
   const { connectionState } = useServerEvents();
@@ -69,45 +69,35 @@ function AppContent() {
     if (fetchedTeamData) setTeamData(fetchedTeamData);
   }, [fetchedSessions, fetchedProjects, fetchedStats, fetchedTeams, fetchedTeamData]);
 
-  // Listen to SSE events and refresh data
+  // SSE events - only refresh selected session for real-time updates
+  // Sessions list uses polling (10s) to reduce load
   useEffect(() => {
     const handleSessionChanged = (event: CustomEvent) => {
       console.log('[App] SSE sessionChanged:', event.detail);
-      const { sessionId, projectId } = event.detail;
+      const { sessionId } = event.detail;
 
-      // Refresh sessions list for all session changes
-      refetchSessions();
-
-      // If the changed session is currently selected, also refresh its details
+      // Only refresh if the changed session is currently selected
+      // Sessions list is refreshed via polling (10s interval)
       if (sessionId === selectedSessionId) {
-        console.log('[App] Refreshing selected session details:', sessionId);
+        console.log('[App] SSE refreshing selected session details:', sessionId);
         refetchSelectedSession();
       }
     };
 
-    const handleSessionListChanged = (event: CustomEvent) => {
-      console.log('[App] SSE sessionListChanged:', event.detail);
-      // Refresh sessions list
-      refetchSessions();
-      refetchStats();
-    };
-
     const handleAgentSessionChanged = (event: CustomEvent) => {
       console.log('[App] SSE agentSessionChanged:', event.detail);
-      // Refresh teams data
-      refetchTeams();
+      // Teams list is refreshed via polling (10s interval)
+      // No real-time refresh needed for teams
     };
 
     window.addEventListener('sse:sessionChanged', handleSessionChanged as EventListener);
-    window.addEventListener('sse:sessionListChanged', handleSessionListChanged as EventListener);
     window.addEventListener('sse:agentSessionChanged', handleAgentSessionChanged as EventListener);
 
     return () => {
       window.removeEventListener('sse:sessionChanged', handleSessionChanged as EventListener);
-      window.removeEventListener('sse:sessionListChanged', handleSessionListChanged as EventListener);
       window.removeEventListener('sse:agentSessionChanged', handleAgentSessionChanged as EventListener);
     };
-  }, [selectedSessionId, refetchSessions, refetchStats, refetchTeams, refetchSelectedSession]);
+  }, [selectedSessionId, refetchSelectedSession]);
 
   // Handlers
   const handleSelectSession = useCallback((session: Session) => {

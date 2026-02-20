@@ -115,6 +115,7 @@ export interface DashboardStats {
   totalMembers: number;
   recentSessions: Session[];
   recentTeams: Team[];
+  allSessions: Session[]; // All sessions for activity charts
 }
 
 export interface ActivityItem {
