@@ -4,6 +4,8 @@
 
 An integrated monitoring dashboard for Claude Code Sessions and Agent Teams.
 
+> **Vibe Coding** by [Kimi 2.5](https://www.kimi.com)
+
 ![Dashboard](docpng/image1.png)
 
 ## Features
@@ -128,6 +130,8 @@ This plugin enables deep linking from Claude Viewer to VSCode, allowing you to:
 **中文** | [English](#claude-viewer)
 
 Claude Viewer 是一个集成的监控面板，用于查看 Claude Code 的 Sessions 和 Agent Teams 数据。
+
+> **Vibe Coding** by [Kimi 2.5](https://www.kimi.com)
 
 ## 功能特性
 
