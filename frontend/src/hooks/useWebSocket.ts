@@ -12,7 +12,7 @@ import type {
 } from '../types';
 
 // Use relative URL to leverage Vite proxy
-const WS_URL = '';
+const WS_URL = '/';
 
 // WebSocket constants
 const SESSION_UPDATE_INDICATOR_DURATION_MS = 2000; // 2 seconds
@@ -65,25 +65,32 @@ export function useWebSocket(callbacks: WebSocketCallbacks = {}) {
     timeoutsRef.current.clear();
   }, []);
 
-  const connect = useCallback(() => {
-    if (socketRef.current?.connected) return;
+  // Connection effect - runs once on mount
+  useEffect(() => {
+    // Check if socket already exists (avoid double connection)
+    if (socketRef.current) {
+      return;
+    }
 
+    // Create socket connection
     const socket = io(WS_URL, {
       transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      timeout: 20000,
     });
 
     socket.on('connect', () => {
-      console.log('[WebSocket] Connected');
+      console.log('[WebSocket] Connected:', socket.id);
       setState(prev => ({ ...prev, connected: true, error: null }));
     });
 
     socket.on('disconnect', () => {
-      console.log('[WebSocket] Disconnected');
       setState(prev => ({ ...prev, connected: false, error: null }));
     });
 
     socket.on('connect_error', (err) => {
-      console.error('[WebSocket] Connection error:', err);
       setState(prev => ({ ...prev, connected: false, error: err.message }));
     });
 
@@ -99,6 +106,7 @@ export function useWebSocket(callbacks: WebSocketCallbacks = {}) {
     });
 
     socket.on('session:data', (session: Session) => {
+      console.log('[WebSocket] Received session:data:', session.sessionId);
       callbacksRef.current.onSessionData?.(session);
     });
 
@@ -111,13 +119,14 @@ export function useWebSocket(callbacks: WebSocketCallbacks = {}) {
       callbacksRef.current.onSessionUpdated?.(data.session);
 
       // Track timeout for cleanup
-      addTimeout(() => {
+      const timeout = setTimeout(() => {
         setState(prev => {
           const newSet = new Set(prev.updatingSessions);
           newSet.delete(data.session.sessionId);
           return { ...prev, updatingSessions: newSet };
         });
       }, SESSION_UPDATE_INDICATOR_DURATION_MS);
+      timeoutsRef.current.add(timeout);
     });
 
     // Projects events
@@ -166,14 +175,16 @@ export function useWebSocket(callbacks: WebSocketCallbacks = {}) {
     });
 
     socketRef.current = socket;
-  }, [addTimeout]);
 
-  const disconnect = useCallback(() => {
-    clearAllTimeouts();
-    socketRef.current?.disconnect();
-    socketRef.current = null;
-  }, [clearAllTimeouts]);
+    // Cleanup on unmount
+    return () => {
+      clearAllTimeouts();
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, []); // Empty deps - only run on mount/unmount
 
+  // Subscription helpers
   const subscribeToSession = useCallback((sessionId: string) => {
     socketRef.current?.emit('session:subscribe', sessionId);
   }, []);
@@ -183,13 +194,11 @@ export function useWebSocket(callbacks: WebSocketCallbacks = {}) {
   }, []);
 
   const subscribeToProject = useCallback((projectName: string) => {
-    // Project subscription not implemented in backend yet
-    console.log('[WebSocket] Project subscription requested:', projectName);
+    // TODO: Implement project subscription
   }, []);
 
   const unsubscribeFromProject = useCallback((projectName: string) => {
-    // Project unsubscription not implemented in backend yet
-    console.log('[WebSocket] Project unsubscription requested:', projectName);
+    // TODO: Implement project unsubscription
   }, []);
 
   const subscribeToTeam = useCallback((teamId: string) => {
@@ -200,12 +209,12 @@ export function useWebSocket(callbacks: WebSocketCallbacks = {}) {
     socketRef.current?.emit('team:unsubscribe', teamId);
   }, []);
 
-  useEffect(() => {
-    connect();
-    return () => {
-      disconnect();
-    };
-  }, [connect, disconnect]);
+  // Reconnect function
+  const reconnect = useCallback(() => {
+    if (socketRef.current && !socketRef.current.connected) {
+      socketRef.current.connect();
+    }
+  }, []);
 
   return {
     ...state,
@@ -216,7 +225,7 @@ export function useWebSocket(callbacks: WebSocketCallbacks = {}) {
     unsubscribeFromProject,
     subscribeToTeam,
     unsubscribeFromTeam,
-    reconnect: connect,
+    reconnect,
     isSessionUpdating: (sessionId: string) => state.updatingSessions.has(sessionId),
   };
 }

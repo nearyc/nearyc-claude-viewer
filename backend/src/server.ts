@@ -188,8 +188,11 @@ export function createServerInstance(): ServerInstance {
 
   app.use(express.json());
 
-  // Create HTTP server first
-  const httpServer = createServer(app);
+  // Create HTTP server first with port reuse option
+  const httpServer = createServer({
+    // @ts-ignore - allow port reuse for development (TIME_WAIT issues)
+    reusePort: true
+  }, app);
 
   // Create Socket.IO server early
   const io = new SocketIOServer(httpServer, {

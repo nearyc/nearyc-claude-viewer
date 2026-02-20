@@ -81,14 +81,14 @@ export class TeamsService {
         }
       } catch {
         // Config file doesn't exist, we'll infer from inboxes
-        console.log(`[TeamsService] No config.json for team ${teamId}, inferring from inboxes`);
+        // Debug: console.log(`[TeamsService] No config.json for team ${teamId}, inferring from inboxes`);
       }
 
       // If no config, try to infer from inboxes directory
       if (!config) {
         const inferredTeam = await this.inferTeamFromInboxes(teamId);
         if (!inferredTeam) {
-          console.log(`[TeamsService] No inboxes found for team ${teamId}, skipping`);
+          // Debug: console.log(`[TeamsService] No inboxes found for team ${teamId}, skipping`);
           return null;
         }
         return inferredTeam;
@@ -317,7 +317,7 @@ export class TeamsService {
           );
 
           if (hasMatch) {
-            console.log(`[TeamsService] Found inbox file ${file.name} for member ${memberName}`);
+            // Debug: console.log(`[TeamsService] Found inbox file ${file.name} for member ${memberName}`);
             return filePath;
           }
         } catch {
@@ -335,12 +335,12 @@ export class TeamsService {
         if (normalizedName === normalizedFileName ||
             normalizedName.includes(normalizedFileName) ||
             normalizedFileName.includes(normalizedName)) {
-          console.log(`[TeamsService] Matched inbox file ${file.name} for member ${memberName} (normalized match)`);
+          // Debug: console.log(`[TeamsService] Matched inbox file ${file.name} for member ${memberName} (normalized match)`);
           return path.join(inboxesDir, file.name);
         }
       }
 
-      console.log(`[TeamsService] No inbox file found for member ${memberName} in team ${teamId}`);
+      // Debug: console.log(`[TeamsService] No inbox file found for member ${memberName} in team ${teamId}`);
       return null;
     } catch {
       return null;
@@ -355,7 +355,7 @@ export class TeamsService {
       // Find the correct inbox file (handles name mismatch)
       const inboxPath = await this.findInboxFile(teamId, memberName);
       if (!inboxPath) {
-        console.log(`[TeamsService] Inbox not found for ${teamId}/${memberName}`);
+        // Debug: console.log(`[TeamsService] Inbox not found for ${teamId}/${memberName}`);
         return [];
       }
 
@@ -490,7 +490,7 @@ export class TeamsService {
       try {
         await fs.access(teamDir);
       } catch {
-        console.log(`[TeamsService] Team directory not found: ${teamId}`);
+        // Debug: console.log(`[TeamsService] Team directory not found: ${teamId}`);
         return false;
       }
 
@@ -500,7 +500,7 @@ export class TeamsService {
       // Clear cache
       this.teamsCache.delete(teamId);
 
-      console.log(`[TeamsService] Deleted team: ${teamId}`);
+      // Debug: console.log(`[TeamsService] Deleted team: ${teamId}`);
       return true;
     } catch (error) {
       console.error(`[TeamsService] Error deleting team ${teamId}:`, error);

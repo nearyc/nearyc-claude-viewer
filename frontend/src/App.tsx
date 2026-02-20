@@ -84,13 +84,24 @@ function AppContent() {
       // Merge with existing session data to preserve full conversation
       setSelectedSession((prev) => {
         if (!prev || prev.sessionId !== updatedSession.sessionId) return prev;
-        // Preserve messages if update doesn't have them (WebSocket often sends metadata only)
-        const mergedMessages =
-          updatedSession.messages && updatedSession.messages.length > 0
-            ? updatedSession.messages
-            : prev.messages;
+
+        // Merge messages and deduplicate by uuid
+        const existingMessages = prev.messages || [];
+        const newMessages = updatedSession.messages || [];
+        const messageMap = new Map(existingMessages.map(m => [m.uuid, m]));
+
+        // Add/update with new messages
+        newMessages.forEach(msg => {
+          messageMap.set(msg.uuid, msg);
+        });
+
+        const mergedMessages = Array.from(messageMap.values());
+        // Sort by timestamp to maintain order
+        mergedMessages.sort((a, b) => a.timestamp - b.timestamp);
+
         return { ...prev, ...updatedSession, messages: mergedMessages };
       });
+
       // Update sessions list (metadata only, preserve existing messages)
       setSessions((prev) =>
         prev.map((s) =>
@@ -102,10 +113,39 @@ function AppContent() {
   );
 
   const handleSessionUpdated = useCallback((updatedSession: Session) => {
+    // Update sessions list (metadata only, preserve existing messages)
     setSessions((prev) =>
-      prev.map((s) => (s.sessionId === updatedSession.sessionId ? { ...s, ...updatedSession } : s))
+      prev.map((s) =>
+        s.sessionId === updatedSession.sessionId ? { ...s, ...updatedSession, messages: s.messages } : s
+      )
     );
-  }, []);
+
+    // Also update selected session if it's the same one
+    // Merge messages and deduplicate by uuid to avoid React key errors
+    setSelectedSession((prev) => {
+      if (!prev || prev.sessionId !== updatedSession.sessionId) return prev;
+
+      // If updatedSession has messages, merge and deduplicate
+      if (updatedSession.messages && updatedSession.messages.length > 0) {
+        const existingMessages = prev.messages || [];
+        const newMessages = updatedSession.messages;
+        const messageMap = new Map(existingMessages.map((m) => [m.uuid, m]));
+
+        // Add/update with new messages
+        newMessages.forEach((msg) => {
+          messageMap.set(msg.uuid, msg);
+        });
+
+        const mergedMessages = Array.from(messageMap.values());
+        // Sort by timestamp to maintain order
+        mergedMessages.sort((a, b) => a.timestamp - b.timestamp);
+
+        return { ...prev, ...updatedSession, messages: mergedMessages };
+      }
+
+      return { ...prev, ...updatedSession };
+    });
+  }, [setSelectedSession]);
 
   const handleProjectsInit = useCallback((newProjects: any[]) => {
     // Only use WebSocket init data if HTTP data hasn't loaded yet

@@ -33,6 +33,10 @@ export class FileWatcher extends EventEmitter {
       path.join(this.teamsDir, '**', '*.json'),
     ];
 
+    const isWindows = process.platform === 'win32';
+    console.log(`[FileWatcher] Starting with platform: ${process.platform}, usePolling: ${isWindows}`);
+    console.log(`[FileWatcher] Watching paths:`, watchPaths);
+
     this.watcher = chokidar.watch(watchPaths, {
       ignored: [
         /(^|[\\/])\../, // ignore dotfiles
@@ -41,6 +45,13 @@ export class FileWatcher extends EventEmitter {
       persistent: true,
       ignoreInitial: false,
       depth: 5,
+      usePolling: isWindows, // Use polling on Windows for better reliability
+      interval: 500, // Polling interval in ms
+      binaryInterval: 500,
+      awaitWriteFinish: {
+        stabilityThreshold: 300,
+        pollInterval: 300
+      },
     });
 
     this.watcher
@@ -113,6 +124,14 @@ export class FileWatcher extends EventEmitter {
   private getDataSource(filePath: string): DataSourceType {
     // Normalize path for consistent comparison (handles Windows \ vs / separators)
     const normalizedPath = path.normalize(filePath);
+
+    // Always log path comparison for debugging
+    console.log(`[FileWatcher] getDataSource: ${normalizedPath}`);
+    console.log(`[FileWatcher]   historyFilePath: ${this.historyFilePath}`);
+    console.log(`[FileWatcher]   projectsDir: ${this.projectsDir}`);
+    console.log(`[FileWatcher]   teamsDir: ${this.teamsDir}`);
+    console.log(`[FileWatcher]   startsWith projectsDir: ${normalizedPath.startsWith(this.projectsDir)}`);
+    console.log(`[FileWatcher]   startsWith teamsDir: ${normalizedPath.startsWith(this.teamsDir)}`);
 
     if (normalizedPath === this.historyFilePath) {
       return 'sessions';

@@ -39,7 +39,7 @@ export function createTeamsRouter(options: TeamsRouterOptions): Router {
       // Force refresh - clear cache and reload from disk
       if (refresh === 'true') {
         teamsService.clearCache();
-        console.log('[API] Teams cache refreshed');
+        // Debug: console.log('[API] Teams cache refreshed');
       }
 
       const teams = await teamsService.getTeams();

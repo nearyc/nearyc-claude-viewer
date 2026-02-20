@@ -370,7 +370,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         <SessionListItem
                           key={session.id}
                           session={session}
-                          onClick={() => onViewSession(session.id)}
+                          onClick={() => onViewSession(session.sessionId)}
                         />
                       ))
                     )}
@@ -451,7 +451,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     <SessionListItem
                       key={session.id}
                       session={session}
-                      onClick={() => onViewSession(session.id)}
+                      onClick={() => onViewSession(session.sessionId)}
                     />
                   ))
                 )}
