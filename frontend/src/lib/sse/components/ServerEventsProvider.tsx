@@ -91,7 +91,7 @@ export function ServerEventsProvider({
     setConnectionState('connecting');
     setError(null);
 
-    console.log(`[ServerEventsProvider] Connecting to SSE: ${url}`);
+    // console.log(`[ServerEventsProvider] Connecting to SSE: ${url}`);
 
     try {
       const client = callSSE({
@@ -99,13 +99,13 @@ export function ServerEventsProvider({
         maxReconnectAttempts,
         reconnectDelay,
         onOpen: () => {
-          console.log('[ServerEventsProvider] SSE connected');
+          // console.log('[ServerEventsProvider] SSE connected');
           setConnectionState('connected');
           setError(null);
 
           // 处理队列中等待的监听器
           if (pendingListenersRef.current.length > 0) {
-            console.log(`[ServerEventsProvider] Processing ${pendingListenersRef.current.length} pending listeners`);
+            // console.log(`[ServerEventsProvider] Processing ${pendingListenersRef.current.length} pending listeners`);
             pendingListenersRef.current.forEach(({ eventName, listener }) => {
               client.addEventListener(eventName, listener);
             });
@@ -118,7 +118,7 @@ export function ServerEventsProvider({
           setError(err instanceof Error ? err : new Error('SSE connection error'));
         },
         onClose: () => {
-          console.log('[ServerEventsProvider] SSE disconnected');
+          // console.log('[ServerEventsProvider] SSE disconnected');
           setConnectionState('disconnected');
           // 注意：不在这里清空 pendingListeners，因为重连时还需要它们
         },
@@ -142,7 +142,7 @@ export function ServerEventsProvider({
    * 添加事件监听器
    */
   const addEventListener = useCallback(<T,>(eventName: string, listener: SSEEventListener<T>) => {
-    console.log(`[ServerEventsProvider] addEventListener called: ${eventName}, client exists: ${!!sseClientRef.current}`);
+    // console.log(`[ServerEventsProvider] addEventListener called: ${eventName}, client exists: ${!!sseClientRef.current}`);
 
     // 如果 client 已准备好，直接添加监听器
     if (sseClientRef.current) {
@@ -151,7 +151,7 @@ export function ServerEventsProvider({
     }
 
     // 如果 client 尚未准备好，加入队列等待连接建立后处理
-    console.log(`[ServerEventsProvider] Queuing listener for '${eventName}' (client not ready)`);
+    // console.log(`[ServerEventsProvider] Queuing listener for '${eventName}' (client not ready)`);
     pendingListenersRef.current.push({ eventName, listener: listener as SSEEventListener<unknown> });
   }, []);
 

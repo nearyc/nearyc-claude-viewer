@@ -226,7 +226,7 @@ class SSEController {
       this.removeClient(clientId);
     });
 
-    console.log(`[SSEController] Client connected: ${clientId}, total clients: ${this.clients.size}`);
+    // console.log(`[SSEController] Client connected: ${clientId}, total clients: ${this.clients.size}`);
 
     return clientId;
   }
@@ -239,7 +239,7 @@ class SSEController {
     const client = this.clients.get(clientId);
     if (client) {
       this.clients.delete(clientId);
-      console.log(`[SSEController] Client disconnected: ${clientId}, remaining clients: ${this.clients.size}`);
+      // console.log(`[SSEController] Client disconnected: ${clientId}, remaining clients: ${this.clients.size}`);
 
       // 如果没有客户端了，停止心跳和注销监听器
       if (this.clients.size === 0) {
@@ -262,17 +262,17 @@ class SSEController {
     const fullData = { ...data, timestamp } as SSEEventDeclaration[EventName];
 
     const clientCount = this.clients.size;
-    console.log(`[SSEController] Broadcasting '${eventName}' to ${clientCount} client(s):`, data);
+    // console.log(`[SSEController] Broadcasting '${eventName}' to ${clientCount} client(s):`, data);
 
     if (clientCount === 0) {
-      console.log(`[SSEController] No clients connected, event '${eventName}' not sent`);
+      // console.log(`[SSEController] No clients connected, event '${eventName}' not sent`);
       return;
     }
 
     for (const client of this.clients.values()) {
       try {
         writeSSE(client, eventName, fullData);
-        console.log(`[SSEController] Sent '${eventName}' to client ${client.id}`);
+        // console.log(`[SSEController] Sent '${eventName}' to client ${client.id}`);
       } catch (error) {
         console.error(`[SSEController] Failed to send to client ${client.id}:`, error);
         this.removeClient(client.id);

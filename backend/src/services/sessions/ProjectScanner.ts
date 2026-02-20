@@ -100,12 +100,12 @@ export class ProjectScanner {
             project.sessionCount++;
             project.lastActive = Math.max(project.lastActive, sessionInfo.timestamp);
 
-            console.log(`[ProjectScanner] Found session ${sessionId} in ${normalizedProjectPath}`);
+            // console.log(`[ProjectScanner] Found session ${sessionId} in ${normalizedProjectPath}`);
           }
         }
       }
 
-      console.log(`[ProjectScanner] Scanned projects directory, found ${sessions.size} total sessions, ${projects.size} projects`);
+      // console.log(`[ProjectScanner] Scanned projects directory, found ${sessions.size} total sessions, ${projects.size} projects`);
     } catch (error) {
       console.error('[ProjectScanner] Error scanning projects directory:', error);
     }

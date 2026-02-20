@@ -65,7 +65,7 @@ export class SessionRepository {
       this.cache.setSessions(sessions);
       this.cache.setProjects(projects);
 
-      console.log(`[SessionRepository] Loaded ${sessions.size} sessions from ${projects.size} projects`);
+      // console.log(`[SessionRepository] Loaded ${sessions.size} sessions from ${projects.size} projects`);
 
       return sessions;
     } catch (error) {
