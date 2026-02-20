@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { getMemberColor } from '../utils/colors';
 import { useTranslation } from '../hooks/useTranslation';
+import { useTimeRefresh } from '../hooks/useTimeRefresh';
 import type { Message } from '../types';
 
 interface MessageItemProps {
@@ -19,20 +20,8 @@ interface MessageItemProps {
   searchQuery?: string;
   memberColor?: string;
   isLatest?: boolean;
+  disableAutoScroll?: boolean; // If true, don't scroll into view (used in compact/embedded mode)
 }
-
-// Hook to force re-render every interval for updating relative timestamps
-const useTimeRefresh = (intervalMs: number = 10000) => {
-  const [, setTick] = useState(0);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setTick(t => t + 1);
-    }, intervalMs);
-
-    return () => clearInterval(timer);
-  }, [intervalMs]);
-};
 
 // Text truncation config
 const MAX_PREVIEW_LENGTH = 280;
@@ -492,7 +481,7 @@ const SmartMessageContent: React.FC<SmartMessageContentProps> = ({
   );
 };
 
-export const MessageItem: React.FC<MessageItemProps> = ({ message, searchQuery, isLatest }) => {
+export const MessageItem: React.FC<MessageItemProps> = React.memo(({ message, searchQuery, isLatest, disableAutoScroll }) => {
   const { t } = useTranslation();
   useTimeRefresh(10000);
   const itemRef = useRef<HTMLDivElement>(null);
@@ -538,12 +527,13 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, searchQuery, 
     }
   }, [message.timestamp]);
 
-  // Scroll into view when new message arrives
+  // Scroll into view when new message arrives (only if not disabled)
   useEffect(() => {
-    if (isLatest && itemRef.current) {
-      itemRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (isLatest && !disableAutoScroll && itemRef.current) {
+      // Use 'nearest' to avoid scrolling the entire page
+      itemRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
-  }, [isLatest]);
+  }, [isLatest, disableAutoScroll]);
 
   const parsed = parseMessageContent(message.content, message.type);
   const typeLabel = getMessageTypeLabel(message.type);
@@ -666,6 +656,16 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, searchQuery, 
       )}
     </div>
   );
-};
+}, (prevProps, nextProps) => {
+  // Custom comparison function - return true means "don't re-render"
+  return (
+    prevProps.message.id === nextProps.message.id &&
+    prevProps.message.timestamp === nextProps.message.timestamp &&
+    prevProps.message.content === nextProps.message.content &&
+    prevProps.searchQuery === nextProps.searchQuery &&
+    prevProps.isLatest === nextProps.isLatest &&
+    prevProps.disableAutoScroll === nextProps.disableAutoScroll
+  );
+});
 
 export default MessageItem;

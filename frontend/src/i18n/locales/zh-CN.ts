@@ -73,6 +73,7 @@ export const zhCN: TranslationSchema = {
     conversation: '对话',
     noInputs: '此会话暂无输入',
     empty: '(空)',
+    selectSession: '选择一个会话查看详情',
   },
   team: {
     title: 'Agent 团队',

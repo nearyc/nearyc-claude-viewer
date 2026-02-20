@@ -1,6 +1,9 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import type { Session, Team } from '../types';
 
+// Command palette constants
+const MAX_SESSION_COMMANDS = 20;
+
 export type CommandType =
   | 'navigate-dashboard'
   | 'navigate-sessions'
@@ -95,7 +98,7 @@ export function useCommandPalette(options: UseCommandPaletteOptions) {
     // Add session commands
     if (sessions.length > 0) {
       commands.push(
-        ...sessions.slice(0, 20).map((session) => ({
+        ...sessions.slice(0, MAX_SESSION_COMMANDS).map((session) => ({
           id: `open-session-${session.sessionId}`,
           type: 'open-session' as const,
           title: session.inputs[0]?.display?.slice(0, 50) || 'Untitled Session',

@@ -13,6 +13,20 @@ interface SessionMetaProps {
   onExport: () => void;
 }
 
+const isValidPath = (path: string): boolean => {
+  const dangerousChars = /[;&|`$(){}[\]\\]/;
+  return !dangerousChars.test(path) && path.length > 0 && path.length < 500;
+};
+
+const isValidSessionId = (id: string): boolean => {
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidPattern.test(id);
+};
+
+const escapePowerShellSingleQuote = (str: string): string => {
+  return str.replace(/'/g, "''");
+};
+
 export const SessionMeta: React.FC<SessionMetaProps> = ({
   sessionId,
   project,
@@ -32,7 +46,19 @@ export const SessionMeta: React.FC<SessionMetaProps> = ({
   };
 
   const handleOpenInClaudeCode = () => {
-    const command = `start powershell -Command "cd '${project}'; claude --dangerously-skip-permissions --resume '${sessionId}'"`;
+    if (!isValidPath(project)) {
+      alert('Invalid project path: path contains dangerous characters or is too long');
+      return;
+    }
+
+    if (!isValidSessionId(sessionId)) {
+      alert('Invalid session ID: must be a valid UUID format');
+      return;
+    }
+
+    const safeProject = escapePowerShellSingleQuote(project);
+    const safeSessionId = escapePowerShellSingleQuote(sessionId);
+    const command = `start powershell -Command "cd '${safeProject}'; claude --dangerously-skip-permissions --resume '${safeSessionId}'"`;
     fetch('/api/execute', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

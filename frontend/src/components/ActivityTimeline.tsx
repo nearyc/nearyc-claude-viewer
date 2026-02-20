@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { MessageSquare, Users, Clock } from 'lucide-react';
 import type { Session, Team } from '../types';
-import { isSystemContent } from '../types';
+import { isSystemContent } from '../utils/session';
 import { formatRelativeTime } from '../utils/time';
 import { useTranslation } from '../hooks/useTranslation';
 

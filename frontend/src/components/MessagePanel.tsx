@@ -1,14 +1,17 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Inbox, Bell, MessageCircle, Search, Filter, X } from 'lucide-react';
+import { Inbox, Bell, MessageCircle, Search, Filter, X, ArrowLeft } from 'lucide-react';
 import { MessageItem } from './MessageItem';
 import { getMemberColor } from '../utils/colors';
 import { useTranslation } from '../hooks/useTranslation';
+import { useIsMobile } from '../hooks/useMediaQuery';
 import type { TeamWithInboxes, Message } from '../types';
 
 interface MessagePanelProps {
   team: TeamWithInboxes | null;
   selectedMember: string | null;
   onViewSession?: (sessionId: string) => void;
+  onBack?: () => void;
+  compact?: boolean; // If true, hide header (used when embedded in TeamDetail)
 }
 
 const getActualMessageType = (message: Message): string => {
@@ -73,8 +76,11 @@ const EmptyState: React.FC<{
 export const MessagePanel: React.FC<MessagePanelProps> = ({
   team,
   selectedMember,
+  onBack,
+  compact = false,
 }) => {
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
@@ -93,8 +99,11 @@ export const MessagePanel: React.FC<MessagePanelProps> = ({
     { value: 'message', label: t('message.typeMessages') },
   ], [t]);
 
-  // Auto-scroll to bottom when messages change
+  // Auto-scroll to bottom when messages change (only in non-compact mode)
   useEffect(() => {
+    // Skip auto-scroll in compact mode (embedded in TeamDetail) to prevent page scroll issues
+    if (compact) return;
+
     const messageLength = selectedInbox?.messages?.length || 0;
 
     if (messageLength > 0 && messageLength !== messageCount) {
@@ -106,7 +115,7 @@ export const MessagePanel: React.FC<MessagePanelProps> = ({
         }
       }, 100);
     }
-  }, [selectedInbox?.messages?.length, messageCount]);
+  }, [selectedInbox?.messages?.length, messageCount, compact]);
 
   // Reset message count when switching members
   useEffect(() => {
@@ -179,38 +188,55 @@ export const MessagePanel: React.FC<MessagePanelProps> = ({
     const memberColor = getMemberColor(selectedInbox.memberName);
 
     return (
-      <div className="p-3 flex flex-col h-full">
-        <div
-          className="flex items-center justify-between pb-3 border-b mb-3"
-          style={{ borderColor: 'var(--border-primary)' }}
-        >
-          <div className="flex items-center gap-3">
-            <div
-              className="w-10 h-10 rounded-full flex items-center justify-center border"
-              style={{
-                backgroundColor: `${memberColor}30`,
-                borderColor: 'var(--border-primary)',
-              }}
-            >
-              <span
-                className="text-sm font-semibold"
-                style={{ color: memberColor }}
+      <div className={`flex flex-col h-full ${compact ? '' : 'p-3'}`}>
+        {/* Member header - hidden in compact mode */}
+        {!compact && (
+          <div
+            className="flex items-center justify-between pb-3 border-b mb-3"
+            style={{ borderColor: 'var(--border-primary)' }}
+          >
+            <div className="flex items-center gap-3">
+              {/* Mobile: Back button */}
+              {isMobile && onBack && (
+                <button
+                  onClick={onBack}
+                  className="p-2 rounded-lg border min-w-[44px] min-h-[44px] flex items-center justify-center"
+                  style={{
+                    backgroundColor: 'var(--bg-secondary)',
+                    borderColor: 'var(--border-primary)',
+                    color: 'var(--text-muted)',
+                  }}
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
+              )}
+              <div
+                className={`${isMobile ? 'w-12 h-12' : 'w-10 h-10'} rounded-full flex items-center justify-center border`}
+                style={{
+                  backgroundColor: `${memberColor}30`,
+                  borderColor: 'var(--border-primary)',
+                }}
               >
-                {selectedInbox.memberName.slice(0, 2).toUpperCase()}
-              </span>
-            </div>
-            <div>
-              <h3 className="font-semibold text-base" style={{ color: 'var(--text-secondary)' }}>
-                {selectedInbox.memberName}
-              </h3>
-              <p className="text-sm flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
-                <span>{t('message.messagesCount', { count: filteredMessages.length })}</span>
-              </p>
+                <span
+                  className={`${isMobile ? 'text-base' : 'text-sm'} font-semibold`}
+                  style={{ color: memberColor }}
+                >
+                  {selectedInbox.memberName.slice(0, 2).toUpperCase()}
+                </span>
+              </div>
+              <div>
+                <h3 className={`font-semibold ${isMobile ? 'text-lg' : 'text-base'}`} style={{ color: 'var(--text-secondary)' }}>
+                  {selectedInbox.memberName}
+                </h3>
+                <p className="text-sm flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
+                  <span>{t('message.messagesCount', { count: filteredMessages.length })}</span>
+                </p>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
-        <div className="space-y-3 flex-1 overflow-y-auto" ref={scrollContainerRef}>
+        <div className={`flex-1 overflow-y-auto space-y-3 ${isMobile ? 'pb-16' : ''} ${compact ? 'p-2' : ''}`} ref={scrollContainerRef}>
           {filteredMessages.map((message, index) => (
             <MessageItem
               key={message.id}
@@ -218,6 +244,7 @@ export const MessagePanel: React.FC<MessagePanelProps> = ({
               searchQuery={searchQuery}
               memberColor={memberColor}
               isLatest={index === filteredMessages.length - 1}
+              disableAutoScroll={compact} // Disable auto-scroll in compact/embedded mode
             />
           ))}
         </div>
@@ -227,139 +254,153 @@ export const MessagePanel: React.FC<MessagePanelProps> = ({
 
   return (
     <div
-      className="flex flex-col h-full"
+      className="flex flex-col h-full overflow-hidden"
       style={{ backgroundColor: 'var(--bg-primary)' }}
     >
-      {/* Header */}
-      <div
-        className="px-4 py-3 border-b"
-        style={{
-          borderColor: 'var(--border-primary)',
-          backgroundColor: 'var(--bg-secondary)',
-        }}
-      >
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-            <MessageCircle className="w-5 h-5" style={{ color: 'var(--text-muted)' }} />
-            <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>{t('message.title')}</span>
-            {totalUnread > 0 && (
-              <span
-                className="px-2 py-0.5 text-xs font-medium rounded-full border"
-                style={{
-                  backgroundColor: 'var(--accent-blue-subtle)',
-                  color: 'var(--accent-blue)',
-                  borderColor: 'var(--accent-blue-medium)',
-                }}
-              >
-                {totalUnread}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Search bar + filter button */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all shrink-0 border"
-            style={{
-              backgroundColor: showFilters || typeFilter !== 'all' ? 'var(--accent-blue-subtle)' : 'transparent',
-              color: showFilters || typeFilter !== 'all' ? 'var(--accent-blue)' : 'var(--text-muted)',
-              borderColor: showFilters || typeFilter !== 'all' ? 'var(--accent-blue-medium)' : 'var(--border-primary)',
-            }}
-          >
-            <Filter className="w-3.5 h-3.5" />
-            <span>{t('message.filter')}</span>
-            {typeFilter !== 'all' && (
-              <span
-                className="ml-0.5 px-1.5 py-0.5 rounded-full text-[10px]"
-                style={{ backgroundColor: 'var(--accent-blue-medium)' }}
-              >
-                1
-              </span>
-            )}
-          </button>
-
-          <div
-            className="flex items-center justify-center w-8 h-8 rounded-lg border shrink-0"
-            style={{
-              backgroundColor: 'var(--bg-secondary)',
-              borderColor: 'var(--border-primary)',
-            }}
-          >
-            <Search className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
+      {/* Header - Hidden in compact mode */}
+      {!compact && (
+        <div
+          className="px-3 md:px-4 py-3 border-b"
+          style={{
+            borderColor: 'var(--border-primary)',
+            backgroundColor: 'var(--bg-secondary)',
+          }}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+              <MessageCircle className="w-5 h-5" style={{ color: 'var(--text-muted)' }} />
+              <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>{t('message.title')}</span>
+              {totalUnread > 0 && (
+                <span
+                  className="px-2 py-0.5 text-xs font-medium rounded-full border"
+                  style={{
+                    backgroundColor: 'var(--accent-blue-subtle)',
+                    color: 'var(--accent-blue)',
+                    borderColor: 'var(--accent-blue-medium)',
+                  }}
+                >
+                  {totalUnread}
+                </span>
+              )}
+            </div>
           </div>
 
-          <div className="relative flex-1">
-            <input
-              type="text"
-              placeholder={t('message.searchPlaceholder')}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-3 pr-8 py-2 rounded-lg text-sm transition-colors focus:outline-none border"
+          {/* Search bar + filter button */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all shrink-0 border ${
+                isMobile ? 'min-h-[44px]' : ''
+              }`}
+              style={{
+                backgroundColor: showFilters || typeFilter !== 'all' ? 'var(--accent-blue-subtle)' : 'transparent',
+                color: showFilters || typeFilter !== 'all' ? 'var(--accent-blue)' : 'var(--text-muted)',
+                borderColor: showFilters || typeFilter !== 'all' ? 'var(--accent-blue-medium)' : 'var(--border-primary)',
+              }}
+            >
+              <Filter className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">{t('message.filter')}</span>
+              {typeFilter !== 'all' && (
+                <span
+                  className="ml-0.5 px-1.5 py-0.5 rounded-full text-[10px]"
+                  style={{ backgroundColor: 'var(--accent-blue-medium)' }}
+                >
+                  1
+                </span>
+              )}
+            </button>
+
+            <div
+              className={`flex items-center justify-center rounded-lg border shrink-0 ${
+                isMobile ? 'w-10 h-10' : 'w-8 h-8'
+              }`}
               style={{
                 backgroundColor: 'var(--bg-secondary)',
                 borderColor: 'var(--border-primary)',
-                color: 'var(--text-primary)',
               }}
-            />
-            {searchQuery && (
+            >
+              <Search className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
+            </div>
+
+            <div className="relative flex-1">
+              <input
+                type="text"
+                placeholder={t('message.searchPlaceholder')}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className={`w-full px-3 pr-8 rounded-lg text-sm transition-colors focus:outline-none border ${
+                  isMobile ? 'py-2.5' : 'py-2'
+                }`}
+                style={{
+                  backgroundColor: 'var(--bg-secondary)',
+                  borderColor: 'var(--border-primary)',
+                  color: 'var(--text-primary)',
+                }}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className={`absolute right-2.5 top-1/2 -translate-y-1/2 ${
+                    isMobile ? 'min-w-[44px] min-h-[44px] flex items-center justify-center' : ''
+                  }`}
+                  style={{ color: 'var(--text-muted)' }}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {hasActiveFilters && (
               <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2"
-                style={{ color: 'var(--text-muted)' }}
+                onClick={clearFilters}
+                className={`flex items-center gap-1 px-2.5 py-2 rounded-lg text-xs transition-colors border shrink-0 ${
+                  isMobile ? 'min-h-[44px]' : ''
+                }`}
+                style={{
+                  color: 'var(--text-muted)',
+                  borderColor: 'var(--border-primary)',
+                }}
+                title={t('message.clearFilters')}
               >
-                <X className="w-4 h-4" />
+                <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
 
-          {hasActiveFilters && (
-            <button
-              onClick={clearFilters}
-              className="flex items-center gap-1 px-2.5 py-2 rounded-lg text-xs transition-colors border shrink-0"
-              style={{
-                color: 'var(--text-muted)',
-                borderColor: 'var(--border-primary)',
-              }}
-              title={t('message.clearFilters')}
+          {hasActiveFilters && selectedInbox && (
+            <div className="mt-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+              {t('message.showingCount', { filtered: filteredMessages.length, total: selectedInbox.messages.length })}
+            </div>
+          )}
+
+          {showFilters && (
+            <div
+              className="flex flex-wrap gap-1.5 mt-2 pt-2 border-t"
+              style={{ borderColor: 'var(--border-primary)' }}
             >
-              <X className="w-3.5 h-3.5" />
-            </button>
+              {messageTypeFilters.map((filter) => (
+                <button
+                  key={filter.value}
+                  onClick={() => setTypeFilter(filter.value)}
+                  className={`px-2.5 py-1 rounded-md text-[10px] font-medium transition-all border ${
+                    isMobile ? 'min-h-[32px]' : ''
+                  }`}
+                  style={{
+                    backgroundColor: typeFilter === filter.value ? 'var(--accent-blue-subtle)' : 'transparent',
+                    color: typeFilter === filter.value ? 'var(--accent-blue)' : 'var(--text-muted)',
+                    borderColor: typeFilter === filter.value ? 'var(--accent-blue-strong)' : 'transparent',
+                  }}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
           )}
         </div>
-
-        {hasActiveFilters && selectedInbox && (
-          <div className="mt-2 text-xs" style={{ color: 'var(--text-muted)' }}>
-            {t('message.showingCount', { filtered: filteredMessages.length, total: selectedInbox.messages.length })}
-          </div>
-        )}
-
-        {showFilters && (
-          <div
-            className="flex flex-wrap gap-1.5 mt-2 pt-2 border-t"
-            style={{ borderColor: 'var(--border-primary)' }}
-          >
-            {messageTypeFilters.map((filter) => (
-              <button
-                key={filter.value}
-                onClick={() => setTypeFilter(filter.value)}
-                className="px-2.5 py-1 rounded-md text-[10px] font-medium transition-all border"
-                style={{
-                  backgroundColor: typeFilter === filter.value ? 'var(--accent-blue-subtle)' : 'transparent',
-                  color: typeFilter === filter.value ? 'var(--accent-blue)' : 'var(--text-muted)',
-                  borderColor: typeFilter === filter.value ? 'var(--accent-blue-strong)' : 'transparent',
-                }}
-              >
-                {filter.label}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Messages Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-hidden">
         {renderContent()}
       </div>
     </div>

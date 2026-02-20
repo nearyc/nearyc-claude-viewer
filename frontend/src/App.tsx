@@ -6,6 +6,7 @@ import {
   SessionList,
   SessionDetail,
   TeamList,
+  TeamDetail,
   MemberList,
   MessagePanel,
 } from './components';
@@ -16,14 +17,18 @@ import { useUrlState } from './hooks/useUrlState';
 import { useCommandPalette } from './hooks/useCommandPalette';
 import { SessionNamesProvider } from './hooks/useSessionNames';
 import { TeamNamesProvider } from './hooks/useTeamNames';
+import { MobileProvider, useMobile } from './contexts/MobileContext';
 import { CommandPalette } from './components/CommandPalette';
 import { BatchActionBar } from './components/BatchActionBar';
 import type { Session, Team, TeamWithInboxes, Message } from './types';
 
-function App() {
+function AppContent() {
   // URL state management
   const { state: urlState, navigateTo } = useUrlState();
   const { view: currentView, sessionId: selectedSessionId, teamId: selectedTeamId, projectPath: selectedProject } = urlState;
+
+  // Mobile context
+  const { isMobile } = useMobile();
 
   // Local state
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
@@ -396,6 +401,10 @@ function App() {
   const renderMiddlePanel = () => {
     switch (currentView) {
       case 'dashboard':
+        // Mobile: Dashboard is the main view (not SessionList)
+        if (isMobile) {
+          return null; // Dashboard will be rendered in rightPanel for mobile
+        }
         return (
           <SessionList
             sessions={stats?.recentSessions || sessions.slice(0, 10)}
@@ -437,11 +446,26 @@ function App() {
           />
         );
       case 'teams':
+        // Desktop: 3-column layout in middle panel
+        // Mobile: TeamList only, TeamDetail goes to right panel
+        if (isMobile) {
+          return (
+            <TeamList
+              teams={teams}
+              selectedId={selectedTeamId}
+              onSelect={handleSelectTeam}
+              onTeamDeleted={handleTeamDeleted}
+              onRefresh={refetchTeams}
+              isRefreshing={teamsLoading}
+            />
+          );
+        }
+        // Desktop: Show all three panels side by side
         return (
           <div className="flex h-full w-full">
-            {/* TeamList: 25% width */}
+            {/* TeamList: 30% width */}
             <div
-              className="w-[25%] border-r"
+              className="w-[30%] border-r"
               style={{ borderColor: 'var(--border-primary)' }}
             >
               <TeamList
@@ -453,9 +477,9 @@ function App() {
                 isRefreshing={teamsLoading}
               />
             </div>
-            {/* MemberList: 20% width */}
+            {/* MemberList: 25% width */}
             <div
-              className="w-[20%] border-r"
+              className="w-[25%] border-r"
               style={{ borderColor: 'var(--border-primary)' }}
             >
               <MemberList
@@ -466,7 +490,7 @@ function App() {
                 inboxes={teamData?.inboxes}
               />
             </div>
-            {/* MessagePanel: remaining 55% width */}
+            {/* MessagePanel: remaining 45% width */}
             <div className="flex-1">
               <MessagePanel
                 team={teamData}
@@ -485,6 +509,8 @@ function App() {
   const renderRightPanel = () => {
     switch (currentView) {
       case 'dashboard':
+        // Desktop: Dashboard in right panel
+        // Mobile: Dashboard is the main view (rendered here)
         return (
           <Dashboard
             stats={stats}
@@ -497,12 +523,55 @@ function App() {
       case 'projects':
         return <SessionDetail session={selectedSession} />;
       case 'teams':
-        // MessagePanel is now rendered in middlePanel for teams view
+        // Desktop: null (rendered in middle panel)
+        // Mobile: TeamDetail in right panel
+        if (isMobile) {
+          return (
+            <TeamDetail
+              team={teamData}
+              onBack={() => navigateTo({ teamId: null })}
+              onViewSession={handleViewSession}
+              hideHeader={true}
+            />
+          );
+        }
         return null;
       default:
         return null;
     }
   };
+
+  // Mobile detail view logic
+  // Dashboard is also a "detail" view on mobile (rendered in rightPanel)
+  const showMobileDetail = Boolean(isMobile && (
+    currentView === 'dashboard' ||
+    (currentView === 'sessions' && selectedSessionId) ||
+    (currentView === 'projects' && selectedSessionId) ||
+    (currentView === 'teams' && selectedTeamId)
+  ));
+
+  const handleMobileDetailBack = useCallback(() => {
+    if (currentView === 'dashboard') {
+      navigateTo({ view: 'sessions', sessionId: null, teamId: null, projectPath: null });
+    } else if (currentView === 'teams') {
+      navigateTo({ teamId: null });
+    } else {
+      navigateTo({ sessionId: null });
+    }
+  }, [navigateTo, currentView]);
+
+  const mobileDetailTitle = useMemo(() => {
+    if (currentView === 'dashboard') {
+      return '概览';
+    }
+    if (currentView === 'teams' && teamData) {
+      return teamData.name;
+    }
+    if (selectedSession) {
+      return `会话 ${selectedSession.sessionId.slice(0, 8)}`;
+    }
+    return '详情';
+  }, [selectedSession, teamData, currentView]);
 
   return (
     <SessionNamesProvider>
@@ -511,37 +580,55 @@ function App() {
           className="h-screen w-screen"
           style={{ backgroundColor: 'var(--bg-primary)' }}
         >
-          <Layout
-            leftPanel={renderLeftPanel()}
-            middlePanel={renderMiddlePanel()}
-            rightPanel={renderRightPanel()}
-            currentView={currentView}
-          />
-          <CommandPalette
-            isOpen={isCommandPaletteOpen}
-            searchQuery={commandSearchQuery}
-            selectedIndex={commandSelectedIndex}
-            commands={commandPaletteCommands}
-            onSearchChange={setCommandSearchQuery}
-            onSelectCommand={executePaletteCommand}
-            onClose={closeCommandPalette}
-          />
-
-          {/* Batch Action Bar */}
-          {(currentView === 'sessions' || currentView === 'projects') && (
-            <BatchActionBar
-              selectedSessions={sessions.filter((s) => selectedSessionIds.has(s.sessionId))}
-              onClearSelection={handleClearSessionSelection}
-              onSelectAll={handleSelectAllSessions}
-              onDeleteSelected={handleBatchDelete}
-              onExportSelected={handleBatchExport}
-              isDeleting={isBatchDeleting}
-              isExporting={isBatchExporting}
+            <Layout
+              leftPanel={renderLeftPanel()}
+              middlePanel={renderMiddlePanel()}
+              rightPanel={renderRightPanel()}
+              currentView={currentView}
+              showMobileDetail={showMobileDetail}
+              onMobileDetailBack={handleMobileDetailBack}
+              mobileDetailTitle={mobileDetailTitle}
+              onViewChange={handleViewChange}
+              stats={stats}
+              projects={projects}
+              isConnected={connected}
+              selectedProject={decodedProjectPath}
+              onSelectProject={handleSelectProject}
             />
-          )}
-        </div>
-      </TeamNamesProvider>
-    </SessionNamesProvider>
+            <CommandPalette
+              isOpen={isCommandPaletteOpen}
+              searchQuery={commandSearchQuery}
+              selectedIndex={commandSelectedIndex}
+              commands={commandPaletteCommands}
+              onSearchChange={setCommandSearchQuery}
+              onSelectCommand={executePaletteCommand}
+              onClose={closeCommandPalette}
+            />
+
+            {/* Batch Action Bar */}
+            {(currentView === 'sessions' || currentView === 'projects') && (
+              <BatchActionBar
+                selectedSessions={sessions.filter((s) => selectedSessionIds.has(s.sessionId))}
+                onClearSelection={handleClearSessionSelection}
+                onSelectAll={handleSelectAllSessions}
+                onDeleteSelected={handleBatchDelete}
+                onExportSelected={handleBatchExport}
+                isDeleting={isBatchDeleting}
+                isExporting={isBatchExporting}
+              />
+            )}
+          </div>
+        </TeamNamesProvider>
+      </SessionNamesProvider>
+  );
+}
+
+// Wrapper component to provide MobileProvider context
+function App() {
+  return (
+    <MobileProvider>
+      <AppContent />
+    </MobileProvider>
   );
 }
 

@@ -15,6 +15,7 @@ An integrated monitoring dashboard for Claude Code Sessions and Agent Teams.
   - Batch operations (delete, export)
   - Smart filter bar with saved filters
   - One-click open in Claude Code / VS Code (see [VSCode Plugin](#vscode-plugin))
+  - Mobile-friendly touch interface
 - **Projects**: Organize sessions by project
 - **Teams**: Monitor Agent Teams and member messages
   - Real-time message updates
@@ -124,6 +125,7 @@ Claude Viewer 是一个集成的监控面板，用于查看 Claude Code 的 Sess
   - 批量操作（删除、导出）
   - 智能筛选栏与保存的筛选条件
   - 一键在 Claude Code / VS Code 中打开（需安装 [VSCode 插件](#vscode-插件)）
+  - 移动端友好的触摸界面
 - **项目**: 按项目组织会话
 - **团队**: 监控 Agent Teams 和成员消息
   - 实时消息更新

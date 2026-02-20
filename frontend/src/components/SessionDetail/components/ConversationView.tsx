@@ -43,7 +43,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
 
   return (
     <>
-      <div className="px-4 py-3 border-b border-[var(--bg-secondary)]/60 bg-[var(--bg-primary)]/30 flex items-center justify-between">
+      <div className="px-3 md:px-4 py-2.5 md:py-3 border-b border-[var(--bg-secondary)]/60 bg-[var(--bg-primary)]/30 flex items-center justify-between">
         <span className="text-sm font-medium text-[var(--text-secondary)]">
           {t('session.conversation')} ({filteredMessages.length} {t('session.messages').toLowerCase()})
         </span>
@@ -54,7 +54,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
         </span>
       )}
     </div>
-    <div className="p-4">
+    <div className="p-2 md:p-4">
       {filteredMessages.map((message, index) => (
         <MessageItem
           key={message.uuid}

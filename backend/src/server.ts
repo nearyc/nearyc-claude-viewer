@@ -16,7 +16,7 @@ import { createExecuteRouter } from './routes/execute';
 import { createSearchRouter } from './routes/search';
 import { createFavoritesRouter } from './routes/favorites';
 import { SessionsService } from './services/sessionsService';
-import { TeamsService } from './services/teamsService';
+import { TeamsService } from './services/TeamsService';
 import { StatsService } from './services/statsService';
 import { SearchService } from './services/searchService';
 import { FavoritesService } from './services/favoritesService';
@@ -194,7 +194,33 @@ export function createServerInstance(): ServerInstance {
   // Create Socket.IO server early
   const io = new SocketIOServer(httpServer, {
     cors: {
-      origin: allowedOrigins,
+      origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+        // Allow requests with no origin (e.g., mobile apps, curl requests)
+        if (!origin) {
+          callback(null, true);
+          return;
+        }
+
+        // Allow configured origins
+        if (allowedOrigins.includes(origin)) {
+          callback(null, true);
+          return;
+        }
+
+        // Allow Tailscale IP range (100.64.0.0/10) for mobile access
+        if (origin.match(/^https?:\/\/100\.(6[4-9]|[7-9]\d|1[0-1]\d|12[0-7])\.\d{1,3}\.\d{1,3}(:\d+)?$/)) {
+          callback(null, true);
+          return;
+        }
+
+        // Allow any localhost origin for development
+        if (origin.match(/^https?:\/\/localhost(:\d+)?$/)) {
+          callback(null, true);
+          return;
+        }
+
+        callback(new Error(`CORS policy does not allow access from origin: ${origin}`));
+      },
       methods: ['GET', 'POST'],
       credentials: true,
     },

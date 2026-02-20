@@ -1,11 +1,34 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 const LEGACY_STORAGE_KEY = 'claude-viewer-session-tags';
-const API_BASE_URL = ''; // Use relative URL to leverage Vite proxy
+const API_BASE_URL = ''; // Use relative URLs for proxy support
 
 export interface SessionTags {
   [sessionId: string]: string[];
 }
+
+// Validator for SessionTags object
+const isValidSessionTags = (data: unknown): data is SessionTags => {
+  if (typeof data !== 'object' || data === null) return false;
+  for (const [key, value] of Object.entries(data)) {
+    if (typeof key !== 'string') return false;
+    if (!Array.isArray(value)) return false;
+    if (!value.every((item) => typeof item === 'string')) return false;
+  }
+  return true;
+};
+
+// Safe localStorage parser with validation
+const safeParseStorage = <T,>(key: string, validator: (data: unknown) => data is T, defaultValue: T): T => {
+  try {
+    const stored = localStorage.getItem(key);
+    if (!stored) return defaultValue;
+    const parsed = JSON.parse(stored);
+    return validator(parsed) ? parsed : defaultValue;
+  } catch {
+    return defaultValue;
+  }
+};
 
 /**
  * Hook for managing session tags with API persistence
@@ -27,29 +50,22 @@ export const useSessionTags = () => {
 
             // Migration: if API data is empty, check localStorage for legacy data
             if (Object.keys(data).length === 0) {
-              const legacyData = localStorage.getItem(LEGACY_STORAGE_KEY);
-              if (legacyData) {
-                try {
-                  const parsed = JSON.parse(legacyData);
-                  if (Object.keys(parsed).length > 0) {
-                    console.log('[SessionTags] Migrating legacy data to API');
-                    data = parsed;
-                    // Migrate each session's tags
-                    for (const [sessionId, sessionTags] of Object.entries(parsed)) {
-                      if (Array.isArray(sessionTags) && sessionTags.length > 0) {
-                        await fetch(`${API_BASE_URL}/api/favorites/session-tags/${sessionId}`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ tags: sessionTags }),
-                        });
-                      }
-                    }
-                    // Clear legacy data
-                    localStorage.removeItem(LEGACY_STORAGE_KEY);
+              const parsed = safeParseStorage(LEGACY_STORAGE_KEY, isValidSessionTags, {});
+              if (Object.keys(parsed).length > 0) {
+                console.log('[SessionTags] Migrating legacy data to API');
+                data = parsed;
+                // Migrate each session's tags
+                for (const [sessionId, sessionTags] of Object.entries(parsed)) {
+                  if (sessionTags.length > 0) {
+                    await fetch(`${API_BASE_URL}/api/favorites/session-tags/${sessionId}`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ tags: sessionTags }),
+                    });
                   }
-                } catch (e) {
-                  console.error('[SessionTags] Failed to parse legacy data:', e);
                 }
+                // Clear legacy data
+                localStorage.removeItem(LEGACY_STORAGE_KEY);
               }
             }
 
@@ -57,17 +73,11 @@ export const useSessionTags = () => {
           }
         } else {
           console.error('[SessionTags] Failed to load from API, falling back to localStorage');
-          const legacyData = localStorage.getItem(LEGACY_STORAGE_KEY);
-          if (legacyData) {
-            setTags(JSON.parse(legacyData) || {});
-          }
+          setTags(safeParseStorage(LEGACY_STORAGE_KEY, isValidSessionTags, {}));
         }
       } catch (error) {
         console.error('[SessionTags] Error loading tags:', error);
-        const legacyData = localStorage.getItem(LEGACY_STORAGE_KEY);
-        if (legacyData) {
-          setTags(JSON.parse(legacyData) || {});
-        }
+        setTags(safeParseStorage(LEGACY_STORAGE_KEY, isValidSessionTags, {}));
       } finally {
         setIsLoading(false);
         isInitialized.current = true;

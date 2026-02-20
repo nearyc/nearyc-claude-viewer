@@ -17,7 +17,30 @@ interface SessionNamesContextType {
 // Legacy localStorage key for migration
 const LEGACY_STORAGE_KEY = 'claude-viewer-session-names';
 
-const API_BASE_URL = ''; // Use relative URL to leverage Vite proxy
+const API_BASE_URL = ''; // Use relative URLs for proxy support
+
+// Validator for SessionNameMap object
+const isValidSessionNameMap = (data: unknown): data is SessionNameMap => {
+  if (typeof data !== 'object' || data === null) return false;
+  for (const [key, value] of Object.entries(data)) {
+    if (typeof key !== 'string' || typeof value !== 'string') {
+      return false;
+    }
+  }
+  return true;
+};
+
+// Safe localStorage parser with validation
+const safeParseStorage = <T,>(key: string, validator: (data: unknown) => data is T, defaultValue: T): T => {
+  try {
+    const stored = localStorage.getItem(key);
+    if (!stored) return defaultValue;
+    const parsed = JSON.parse(stored);
+    return validator(parsed) ? parsed : defaultValue;
+  } catch {
+    return defaultValue;
+  }
+};
 
 const SessionNamesContext = createContext<SessionNamesContextType | null>(null);
 
@@ -39,25 +62,18 @@ export function SessionNamesProvider({ children }: { children: React.ReactNode }
 
             // Migration: if API data is empty, check localStorage for legacy data
             if (Object.keys(data).length === 0) {
-              const legacyData = localStorage.getItem(LEGACY_STORAGE_KEY);
-              if (legacyData) {
-                try {
-                  const parsed = JSON.parse(legacyData);
-                  if (Object.keys(parsed).length > 0) {
-                    console.log('[SessionNames] Migrating legacy data to API');
-                    data = parsed;
-                    // Save legacy data to API
-                    await fetch(`${API_BASE_URL}/api/favorites/session-names`, {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ names: parsed }),
-                    });
-                    // Clear legacy data
-                    localStorage.removeItem(LEGACY_STORAGE_KEY);
-                  }
-                } catch (e) {
-                  console.error('[SessionNames] Failed to parse legacy data:', e);
-                }
+              const parsed = safeParseStorage(LEGACY_STORAGE_KEY, isValidSessionNameMap, {});
+              if (Object.keys(parsed).length > 0) {
+                console.log('[SessionNames] Migrating legacy data to API');
+                data = parsed;
+                // Save legacy data to API
+                await fetch(`${API_BASE_URL}/api/favorites/session-names`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ names: parsed }),
+                });
+                // Clear legacy data
+                localStorage.removeItem(LEGACY_STORAGE_KEY);
               }
             }
 
@@ -66,18 +82,12 @@ export function SessionNamesProvider({ children }: { children: React.ReactNode }
         } else {
           console.error('[SessionNames] Failed to load from API, falling back to localStorage');
           // Fallback to localStorage
-          const legacyData = localStorage.getItem(LEGACY_STORAGE_KEY);
-          if (legacyData) {
-            setSessionNames(JSON.parse(legacyData) || {});
-          }
+          setSessionNames(safeParseStorage(LEGACY_STORAGE_KEY, isValidSessionNameMap, {}));
         }
       } catch (error) {
         console.error('[SessionNames] Error loading session names:', error);
         // Fallback to localStorage on error
-        const legacyData = localStorage.getItem(LEGACY_STORAGE_KEY);
-        if (legacyData) {
-          setSessionNames(JSON.parse(legacyData) || {});
-        }
+        setSessionNames(safeParseStorage(LEGACY_STORAGE_KEY, isValidSessionNameMap, {}));
       } finally {
         setIsLoading(false);
         isInitialized.current = true;
