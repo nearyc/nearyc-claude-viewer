@@ -31,16 +31,16 @@ export class ConversationLoader {
       const projectSlug = generateProjectSlug(normalizedPath);
       const conversationFile = path.join(this.projectsDir, projectSlug, `${sessionId}.jsonl`);
 
-      console.log(`[ConversationLoader] Loading conversation for ${sessionId}`);
-      console.log(`[ConversationLoader] Project path: ${normalizedPath} -> slug: ${projectSlug}`);
-      console.log(`[ConversationLoader] Looking for file: ${conversationFile}`);
+      // console.log(`[ConversationLoader] Loading conversation for ${sessionId}`);
+      // console.log(`[ConversationLoader] Project path: ${normalizedPath} -> slug: ${projectSlug}`);
+      // console.log(`[ConversationLoader] Looking for file: ${conversationFile}`);
 
       // Check if file exists
       try {
         await fs.access(conversationFile);
-        console.log(`[ConversationLoader] File found, parsing...`);
+        // console.log(`[ConversationLoader] File found, parsing...`);
       } catch {
-        console.log(`[ConversationLoader] File not found: ${conversationFile}`);
+        // console.log(`[ConversationLoader] File not found: ${conversationFile}`);
         return messages;
       }
 
@@ -108,7 +108,7 @@ export class ConversationLoader {
       // Sort messages by timestamp
       messages.sort((a, b) => a.timestamp - b.timestamp);
 
-      console.log(`[ConversationLoader] Loaded ${messages.length} messages for ${sessionId}`);
+      // console.log(`[ConversationLoader] Loaded ${messages.length} messages for ${sessionId}`);
 
       return messages;
     } catch (error) {

@@ -108,7 +108,7 @@ export class SessionsService {
       // History file changed, reload all sessions
       this.clearCache();
       await this.loadSessions();
-      console.log('[FileWatcher] Sessions data reloaded');
+      // console.log('[FileWatcher] Sessions data reloaded');
       return { type: 'sessions' };
     }
 
@@ -121,7 +121,7 @@ export class SessionsService {
 
       // Skip subagent files
       if (!fileName.includes('/subagents/') && !event.path.includes('subagents')) {
-        console.log(`[FileWatcher] Session file changed: ${sessionId}`);
+        // console.log(`[FileWatcher] Session file changed: ${sessionId}`);
         // Clear cache and reload sessions to pick up any new sessions
         this.clearCache();
         await this.loadSessions();

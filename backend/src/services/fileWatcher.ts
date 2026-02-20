@@ -34,16 +34,16 @@ export class FileWatcher {
         this.projectsDir,
         { recursive: true, persistent: true },
         (eventType, filename) => {
-          console.log(`[FileWatcher] Raw event received: type=${eventType}, filename=${filename || 'null'}`);
+          // console.log(`[FileWatcher] Raw event received: type=${eventType}, filename=${filename || 'null'}`);
           if (!filename) return;
 
-          console.log(`[FileWatcher] Raw file event: ${eventType} - ${filename}`);
+          // console.log(`[FileWatcher] Raw file event: ${eventType} - ${filename}`);
 
           // 只处理 .jsonl 文件
           if (!filename.endsWith('.jsonl')) return;
 
           const fileMatch = parseSessionFilePath(filename);
-          console.log(`[FileWatcher] Parsed result:`, fileMatch);
+          // console.log(`[FileWatcher] Parsed result:`, fileMatch);
 
           if (fileMatch === null) return;
 
@@ -72,7 +72,7 @@ export class FileWatcher {
     debounceKey: string,
     fileMatch: NonNullable<ReturnType<typeof parseSessionFilePath>>
   ): void {
-    console.log(`[FileWatcher] File changed: ${debounceKey}, scheduling emit...`);
+    // console.log(`[FileWatcher] File changed: ${debounceKey}, scheduling emit...`);
 
     // 清除现有计时器
     const existingTimer = this.debounceTimers.get(debounceKey);
@@ -82,7 +82,7 @@ export class FileWatcher {
 
     // 设置新计时器
     const newTimer = setTimeout(() => {
-      console.log(`[FileWatcher] Debounce completed for: ${debounceKey}`);
+      // console.log(`[FileWatcher] Debounce completed for: ${debounceKey}`);
       this.emitEvent(fileMatch);
       this.debounceTimers.delete(debounceKey);
     }, this.DEBOUNCE_MS);
@@ -97,19 +97,19 @@ export class FileWatcher {
     fileMatch: NonNullable<ReturnType<typeof parseSessionFilePath>>
   ): void {
     if (fileMatch.type === 'agent') {
-      console.log(`[FileWatcher] Emitting agentSessionChanged: ${fileMatch.projectId}/${fileMatch.agentSessionId}`);
+      // console.log(`[FileWatcher] Emitting agentSessionChanged: ${fileMatch.projectId}/${fileMatch.agentSessionId}`);
       eventBus.emit('agentSessionChanged', {
         projectId: fileMatch.projectId,
         agentSessionId: fileMatch.agentSessionId,
       });
     } else {
-      console.log(`[FileWatcher] Emitting sessionChanged: ${fileMatch.projectId}/${fileMatch.sessionId}`);
+      // console.log(`[FileWatcher] Emitting sessionChanged: ${fileMatch.projectId}/${fileMatch.sessionId}`);
       eventBus.emit('sessionChanged', {
         projectId: fileMatch.projectId,
         sessionId: fileMatch.sessionId,
       });
 
-      console.log(`[FileWatcher] Emitting sessionListChanged: ${fileMatch.projectId}`);
+      // console.log(`[FileWatcher] Emitting sessionListChanged: ${fileMatch.projectId}`);
       eventBus.emit('sessionListChanged', {
         projectId: fileMatch.projectId,
       });

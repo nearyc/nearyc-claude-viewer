@@ -445,7 +445,7 @@ export class TeamsService {
   }> {
     // Handle addDir events - a new team directory was created
     if (event.type === 'addDir') {
-      console.log(`[FileWatcher] New team directory created: ${event.path}`);
+      // console.log(`[FileWatcher] New team directory created: ${event.path}`);
       return { type: 'team' };
     }
 
@@ -459,7 +459,7 @@ export class TeamsService {
       // Team config changed
       const teamId = parts[0];
       this.teamsCache.delete(teamId);
-      console.log(`[FileWatcher] Team config changed: ${teamId}`);
+      // console.log(`[FileWatcher] Team config changed: ${teamId}`);
       return { type: 'team', teamId };
     }
 
@@ -469,7 +469,7 @@ export class TeamsService {
       const memberName = path.basename(parts[2], '.json');
       const cacheKey = `${teamId}/${memberName}`;
       this.messagesCache.delete(cacheKey);
-      console.log(`[FileWatcher] Messages changed: ${teamId}/${memberName}`);
+      // console.log(`[FileWatcher] Messages changed: ${teamId}/${memberName}`);
       return { type: 'messages', teamId, memberName };
     }
 
