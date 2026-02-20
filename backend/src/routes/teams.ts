@@ -1,6 +1,6 @@
 import { Router, type Response } from 'express';
 import type { Server as SocketIOServer } from 'socket.io';
-import type { TeamsService } from '../services/teamsService';
+import type { TeamsService } from '../services/TeamsService';
 import type { ApiResponse, Team, TeamWithInboxes, Message, TeamStats } from '../types';
 
 function sendSuccess<T>(res: Response, data: T, count?: number): void {

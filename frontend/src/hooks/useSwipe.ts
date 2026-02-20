@@ -16,8 +16,8 @@ interface SwipeState {
   isTracking: boolean;
 }
 
-const DEFAULT_THRESHOLD = 50;
-const MAX_SWIPE_DURATION = 300;
+const DEFAULT_THRESHOLD = 30;
+const MAX_SWIPE_DURATION = 500;
 
 export function useSwipe(ref: RefObject<HTMLElement | null>, config: SwipeConfig): void {
   const stateRef = useRef<SwipeState>({

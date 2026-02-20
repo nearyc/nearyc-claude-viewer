@@ -122,8 +122,7 @@ export const SessionList: React.FC<SessionListProps> = ({
   };
 
   // Batch selection handlers
-  const handleToggleSelection = useCallback((e: React.MouseEvent, sessionId: string) => {
-    e.stopPropagation();
+  const handleToggleSelection = useCallback((sessionId: string) => {
     const newSelection = new Set(effectiveSelectedIds);
     if (newSelection.has(sessionId)) {
       newSelection.delete(sessionId);
@@ -180,15 +179,6 @@ export const SessionList: React.FC<SessionListProps> = ({
       await setSessionName(sessionId, t('session.favorite'));
     }
   }, [hasCustomName, removeSessionName, setSessionName, t]);
-
-  // Handle long press to enter batch selection mode
-  const handleLongPress = useCallback((sessionId: string) => {
-    if (!enableBatchSelection) return;
-
-    const newSelection = new Set(effectiveSelectedIds);
-    newSelection.add(sessionId);
-    effectiveOnSelectionChange(newSelection);
-  }, [enableBatchSelection, effectiveSelectedIds, effectiveOnSelectionChange]);
 
   // Show toast message
   const showToastMessage = useCallback((message: string) => {
@@ -311,7 +301,15 @@ export const SessionList: React.FC<SessionListProps> = ({
           {/* Batch selection toggle */}
           {enableBatchSelection && (
             <button
-              onClick={() => effectiveOnSelectionChange(new Set())}
+              onClick={() => {
+                if (batchSelectionCount > 0) {
+                  // Clear selection if items are selected
+                  effectiveOnSelectionChange(new Set());
+                } else {
+                  // Select all filtered sessions if nothing is selected
+                  handleSelectAll();
+                }
+              }}
               className="flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-all min-h-[44px] md:min-h-0"
               style={{
                 backgroundColor: batchSelectionCount > 0 ? 'rgba(59, 130, 246, 0.2)' : 'var(--bg-tertiary)',
@@ -499,16 +497,10 @@ export const SessionList: React.FC<SessionListProps> = ({
                   hasCustom={hasCustom}
                   title={title}
                   customName={customName}
-                  enableBatchSelection={enableBatchSelection}
-                  batchSelectionCount={batchSelectionCount}
                   onSelect={handleSessionSelect}
                   onDelete={setDeletingSession}
                   onToggleFavorite={handleToggleFavorite}
-                  onToggleSelection={(sessionId) => {
-                    const mockEvent = { stopPropagation: () => {} } as React.MouseEvent;
-                    handleToggleSelection(mockEvent, sessionId);
-                  }}
-                  onLongPress={handleLongPress}
+                  onToggleSelection={handleToggleSelection}
                   getSessionTags={getSessionTags}
                   t={t}
                 />
