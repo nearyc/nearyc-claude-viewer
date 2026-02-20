@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { formatRelativeTime } from '../utils/time';
 import type { DashboardStats, Session, Team } from '../types';
-import { isSystemContent } from '../types';
+import { isSystemContent } from '../utils/session';
 import { ActivityHeatmap } from './ActivityHeatmap';
 import { TrendChart } from './TrendChart';
 import { ActivityTimeline } from './ActivityTimeline';

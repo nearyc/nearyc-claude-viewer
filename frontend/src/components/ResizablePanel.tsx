@@ -17,25 +17,40 @@ interface ResizablePanelProps {
 
 const STORAGE_KEY = 'resizable-panel-widths';
 
-export const getStoredWidth = (key: string, defaultWidth: number): number => {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const widths = JSON.parse(stored);
-      if (widths[key] !== undefined) {
-        return widths[key];
-      }
+// Validator for width record object
+const isValidWidthRecord = (data: unknown): data is Record<string, number> => {
+  if (typeof data !== 'object' || data === null) return false;
+  for (const [key, value] of Object.entries(data)) {
+    if (typeof key !== 'string' || typeof value !== 'number' || !Number.isFinite(value)) {
+      return false;
     }
+  }
+  return true;
+};
+
+// Safe localStorage parser with validation
+const safeParseStorage = <T,>(key: string, validator: (data: unknown) => data is T, defaultValue: T): T => {
+  try {
+    const stored = localStorage.getItem(key);
+    if (!stored) return defaultValue;
+    const parsed = JSON.parse(stored);
+    return validator(parsed) ? parsed : defaultValue;
   } catch {
-    // Ignore storage errors
+    return defaultValue;
+  }
+};
+
+export const getStoredWidth = (key: string, defaultWidth: number): number => {
+  const widths = safeParseStorage(STORAGE_KEY, isValidWidthRecord, {});
+  if (widths[key] !== undefined) {
+    return widths[key];
   }
   return defaultWidth;
 };
 
 export const storeWidth = (key: string, width: number): void => {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    const widths = stored ? JSON.parse(stored) : {};
+    const widths = safeParseStorage(STORAGE_KEY, isValidWidthRecord, {});
     widths[key] = width;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(widths));
   } catch {

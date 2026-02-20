@@ -3,6 +3,37 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 const LEGACY_STORAGE_KEY = 'claude-viewer-saved-filters';
 const API_BASE_URL = ''; // Use relative URLs for proxy support
 
+// Validator for SavedFilters object
+const isValidSavedFilters = (data: unknown): data is SavedFilters => {
+  if (typeof data !== 'object' || data === null) return false;
+  for (const [key, value] of Object.entries(data)) {
+    if (typeof key !== 'string') return false;
+    if (typeof value !== 'object' || value === null) return false;
+    const filter = value as Record<string, unknown>;
+    if (typeof filter.id !== 'string') return false;
+    if (typeof filter.name !== 'string') return false;
+    if (typeof filter.createdAt !== 'number') return false;
+    // Optional fields type checking
+    if (filter.projectFilter !== undefined && filter.projectFilter !== null && typeof filter.projectFilter !== 'string') return false;
+    if (filter.tagFilter !== undefined && filter.tagFilter !== null && typeof filter.tagFilter !== 'string') return false;
+    if (filter.searchQuery !== undefined && typeof filter.searchQuery !== 'string') return false;
+    if (filter.showOnlyStarred !== undefined && typeof filter.showOnlyStarred !== 'boolean') return false;
+  }
+  return true;
+};
+
+// Safe localStorage parser with validation
+const safeParseStorage = <T,>(key: string, validator: (data: unknown) => data is T, defaultValue: T): T => {
+  try {
+    const stored = localStorage.getItem(key);
+    if (!stored) return defaultValue;
+    const parsed = JSON.parse(stored);
+    return validator(parsed) ? parsed : defaultValue;
+  } catch {
+    return defaultValue;
+  }
+};
+
 export interface FilterCondition {
   id: string;
   name: string;
@@ -64,53 +95,46 @@ export const useSavedFilters = () => {
 
             // Migration: if API data is empty, check localStorage for legacy data
             if (Object.keys(filters).length === 0) {
-              const legacyData = localStorage.getItem(LEGACY_STORAGE_KEY);
-              if (legacyData) {
-                try {
-                  const parsed = JSON.parse(legacyData) as SavedFilters;
-                  if (Object.keys(parsed).length > 0) {
-                    console.log('[SavedFilters] Migrating legacy data to API');
-                    filters = parsed;
-                    // Migrate each filter to API
-                    for (const filter of Object.values(parsed)) {
-                      await fetch(`${API_BASE_URL}/api/favorites/saved-filters`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          name: filter.name,
-                          filter: {
-                            projectFilter: filter.projectFilter,
-                            tagFilter: filter.tagFilter,
-                            searchQuery: filter.searchQuery,
-                            showOnlyStarred: filter.showOnlyStarred,
-                          },
-                        }),
-                      });
-                    }
-                    // Clear legacy data
-                    localStorage.removeItem(LEGACY_STORAGE_KEY);
-                    // Reload from API to get proper IDs
-                    const reloadResponse = await fetch(`${API_BASE_URL}/api/favorites/saved-filters`);
-                    if (reloadResponse.ok) {
-                      const reloadResult = await reloadResponse.json();
-                      if (reloadResult.success) {
-                        filters = {};
-                        for (const apiFilter of reloadResult.data as ApiSavedFilter[]) {
-                          filters[apiFilter.id] = {
-                            id: apiFilter.id,
-                            name: apiFilter.name,
-                            projectFilter: apiFilter.filter.projectFilter,
-                            tagFilter: apiFilter.filter.tagFilter,
-                            searchQuery: apiFilter.filter.searchQuery,
-                            showOnlyStarred: apiFilter.filter.showOnlyStarred,
-                            createdAt: new Date(apiFilter.createdAt).getTime(),
-                          };
-                        }
-                      }
+              const parsed = safeParseStorage(LEGACY_STORAGE_KEY, isValidSavedFilters, {});
+              if (Object.keys(parsed).length > 0) {
+                console.log('[SavedFilters] Migrating legacy data to API');
+                filters = parsed;
+                // Migrate each filter to API
+                for (const filter of Object.values(parsed)) {
+                  await fetch(`${API_BASE_URL}/api/favorites/saved-filters`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      name: filter.name,
+                      filter: {
+                        projectFilter: filter.projectFilter,
+                        tagFilter: filter.tagFilter,
+                        searchQuery: filter.searchQuery,
+                        showOnlyStarred: filter.showOnlyStarred,
+                      },
+                    }),
+                  });
+                }
+                // Clear legacy data
+                localStorage.removeItem(LEGACY_STORAGE_KEY);
+                // Reload from API to get proper IDs
+                const reloadResponse = await fetch(`${API_BASE_URL}/api/favorites/saved-filters`);
+                if (reloadResponse.ok) {
+                  const reloadResult = await reloadResponse.json();
+                  if (reloadResult.success) {
+                    filters = {};
+                    for (const apiFilter of reloadResult.data as ApiSavedFilter[]) {
+                      filters[apiFilter.id] = {
+                        id: apiFilter.id,
+                        name: apiFilter.name,
+                        projectFilter: apiFilter.filter.projectFilter,
+                        tagFilter: apiFilter.filter.tagFilter,
+                        searchQuery: apiFilter.filter.searchQuery,
+                        showOnlyStarred: apiFilter.filter.showOnlyStarred,
+                        createdAt: new Date(apiFilter.createdAt).getTime(),
+                      };
                     }
                   }
-                } catch (e) {
-                  console.error('[SavedFilters] Failed to parse legacy data:', e);
                 }
               }
             }
@@ -119,17 +143,11 @@ export const useSavedFilters = () => {
           }
         } else {
           console.error('[SavedFilters] Failed to load from API, falling back to localStorage');
-          const legacyData = localStorage.getItem(LEGACY_STORAGE_KEY);
-          if (legacyData) {
-            setSavedFilters(JSON.parse(legacyData) || {});
-          }
+          setSavedFilters(safeParseStorage(LEGACY_STORAGE_KEY, isValidSavedFilters, {}));
         }
       } catch (error) {
         console.error('[SavedFilters] Error loading filters:', error);
-        const legacyData = localStorage.getItem(LEGACY_STORAGE_KEY);
-        if (legacyData) {
-          setSavedFilters(JSON.parse(legacyData) || {});
-        }
+        setSavedFilters(safeParseStorage(LEGACY_STORAGE_KEY, isValidSavedFilters, {}));
       } finally {
         setIsLoading(false);
         isInitialized.current = true;

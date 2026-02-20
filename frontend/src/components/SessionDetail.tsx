@@ -91,12 +91,12 @@ export const SessionDetail: React.FC<SessionDetailProps> = ({ session, isUpdatin
   // Derived data
   const sortedInputs = useMemo(
     () => (session ? [...session.inputs].sort((a, b) => b.timestamp - a.timestamp) : []),
-    [session]
+    [session?.sessionId, session?.inputs?.length]
   );
 
   const sortedMessages = useMemo(
     () => (session?.messages ? [...session.messages].sort((a, b) => a.timestamp - b.timestamp) : []),
-    [session?.messages]
+    [session?.sessionId, session?.messages?.length]
   );
 
   const hasFullConversation = sortedMessages.length > 0;

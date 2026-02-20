@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import type { Session, Project, DashboardStats, ApiResponse } from '../types';
+import type { Session, Project, DashboardStats, ApiResponse, Team } from '../types';
 
 const API_BASE = '/api';
 
@@ -127,7 +127,7 @@ export function useDashboardStats() {
       // Calculate stats from sessions and teams endpoints
       const [sessionsRes, teamsRes] = await Promise.all([
         axios.get<ApiResponse<Session[]>>(`${API_BASE}/sessions`),
-        axios.get<ApiResponse<any[]>>(`${API_BASE}/teams`),
+        axios.get<ApiResponse<Team[]>>(`${API_BASE}/teams`),
       ]);
 
       if (sessionsRes.data.success && teamsRes.data.success && sessionsRes.data.data && teamsRes.data.data) {

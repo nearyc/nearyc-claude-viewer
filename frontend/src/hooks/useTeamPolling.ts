@@ -1,7 +1,10 @@
 import { useEffect, useRef, useCallback } from 'react';
 
+// Polling constants
+const DEFAULT_POLLING_INTERVAL_MS = 5000; // 5 seconds
+
 interface PollingOptions {
-  interval?: number;      // Polling interval in milliseconds, default 10000 (10 seconds)
+  interval?: number;      // Polling interval in milliseconds, default 5000 (5 seconds)
   enabled?: boolean;      // Whether to enable polling, default true
   onTick: () => void;     // Polling callback
 }
@@ -10,7 +13,7 @@ interface PollingOptions {
  * Hook for polling mechanism as a backup to WebSocket real-time updates
  * Useful when WebSocket is disconnected or unreliable
  */
-export function useTeamPolling({ interval = 5000, enabled = true, onTick }: PollingOptions) {
+export function useTeamPolling({ interval = DEFAULT_POLLING_INTERVAL_MS, enabled = true, onTick }: PollingOptions) {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const onTickRef = useRef(onTick);
 

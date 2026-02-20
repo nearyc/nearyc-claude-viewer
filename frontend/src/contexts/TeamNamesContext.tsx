@@ -19,6 +19,29 @@ const LEGACY_STORAGE_KEY = 'claude-viewer-team-names';
 
 const API_BASE_URL = ''; // Use relative URLs for proxy support
 
+// Validator for TeamNameMap object
+const isValidTeamNameMap = (data: unknown): data is TeamNameMap => {
+  if (typeof data !== 'object' || data === null) return false;
+  for (const [key, value] of Object.entries(data)) {
+    if (typeof key !== 'string' || typeof value !== 'string') {
+      return false;
+    }
+  }
+  return true;
+};
+
+// Safe localStorage parser with validation
+const safeParseStorage = <T,>(key: string, validator: (data: unknown) => data is T, defaultValue: T): T => {
+  try {
+    const stored = localStorage.getItem(key);
+    if (!stored) return defaultValue;
+    const parsed = JSON.parse(stored);
+    return validator(parsed) ? parsed : defaultValue;
+  } catch {
+    return defaultValue;
+  }
+};
+
 const TeamNamesContext = createContext<TeamNamesContextType | null>(null);
 
 export function TeamNamesProvider({ children }: { children: React.ReactNode }) {
@@ -39,27 +62,20 @@ export function TeamNamesProvider({ children }: { children: React.ReactNode }) {
 
             // Migration: if API data is empty, check localStorage for legacy data
             if (Object.keys(data).length === 0) {
-              const legacyData = localStorage.getItem(LEGACY_STORAGE_KEY);
-              if (legacyData) {
-                try {
-                  const parsed = JSON.parse(legacyData);
-                  if (Object.keys(parsed).length > 0) {
-                    console.log('[TeamNames] Migrating legacy data to API');
-                    data = parsed;
-                    // Migrate each team name individually
-                    for (const [teamId, name] of Object.entries(parsed)) {
-                      await fetch(`${API_BASE_URL}/api/favorites/team-names/${teamId}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ name }),
-                      });
-                    }
-                    // Clear legacy data
-                    localStorage.removeItem(LEGACY_STORAGE_KEY);
-                  }
-                } catch (e) {
-                  console.error('[TeamNames] Failed to parse legacy data:', e);
+              const parsed = safeParseStorage(LEGACY_STORAGE_KEY, isValidTeamNameMap, {});
+              if (Object.keys(parsed).length > 0) {
+                console.log('[TeamNames] Migrating legacy data to API');
+                data = parsed;
+                // Migrate each team name individually
+                for (const [teamId, name] of Object.entries(parsed)) {
+                  await fetch(`${API_BASE_URL}/api/favorites/team-names/${teamId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name }),
+                  });
                 }
+                // Clear legacy data
+                localStorage.removeItem(LEGACY_STORAGE_KEY);
               }
             }
 
@@ -68,18 +84,12 @@ export function TeamNamesProvider({ children }: { children: React.ReactNode }) {
         } else {
           console.error('[TeamNames] Failed to load from API, falling back to localStorage');
           // Fallback to localStorage
-          const legacyData = localStorage.getItem(LEGACY_STORAGE_KEY);
-          if (legacyData) {
-            setTeamNames(JSON.parse(legacyData) || {});
-          }
+          setTeamNames(safeParseStorage(LEGACY_STORAGE_KEY, isValidTeamNameMap, {}));
         }
       } catch (error) {
         console.error('[TeamNames] Error loading team names:', error);
         // Fallback to localStorage on error
-        const legacyData = localStorage.getItem(LEGACY_STORAGE_KEY);
-        if (legacyData) {
-          setTeamNames(JSON.parse(legacyData) || {});
-        }
+        setTeamNames(safeParseStorage(LEGACY_STORAGE_KEY, isValidTeamNameMap, {}));
       } finally {
         setIsLoading(false);
         isInitialized.current = true;

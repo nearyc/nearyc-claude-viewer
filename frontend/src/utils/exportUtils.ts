@@ -1,5 +1,5 @@
 import type { Session, ChatMessage } from '../types';
-import { isSystemContent } from '../types';
+import { isSystemContent } from './session';
 
 export type ExportFormat = 'markdown' | 'json' | 'html';
 

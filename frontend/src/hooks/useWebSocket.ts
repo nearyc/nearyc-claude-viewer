@@ -14,6 +14,9 @@ import type {
 // Use relative URL to leverage Vite proxy
 const WS_URL = '';
 
+// WebSocket constants
+const SESSION_UPDATE_INDICATOR_DURATION_MS = 2000; // 2 seconds
+
 interface WebSocketState {
   connected: boolean;
   error: string | null;
@@ -114,7 +117,7 @@ export function useWebSocket(callbacks: WebSocketCallbacks = {}) {
           newSet.delete(data.session.sessionId);
           return { ...prev, updatingSessions: newSet };
         });
-      }, 2000);
+      }, SESSION_UPDATE_INDICATOR_DURATION_MS);
     });
 
     // Projects events
