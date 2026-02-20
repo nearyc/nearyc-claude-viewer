@@ -127,30 +127,30 @@ export const MessageItem: React.FC<MessageItemProps> = ({
       data-message-index={index}
       data-role={message.role}
       data-message-id={message.uuid}
-      className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4 transition-all duration-500 ${
+      className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-3 md:mb-4 transition-all duration-500 ${
         isLatest ? 'animate-pulse' : ''
       }`}
     >
       <div
-        className={`flex gap-3 max-w-[85%] ${
+        className={`flex gap-2 md:gap-3 max-w-[92%] md:max-w-[85%] ${
           isUser ? 'flex-row-reverse' : 'flex-row'
         }`}
       >
         {/* Avatar */}
         <div
-          className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center border"
+          className="flex-shrink-0 w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center border"
           style={{
             backgroundColor: isUser ? 'var(--accent-blue-subtle)' : 'var(--accent-purple-subtle)',
             color: isUser ? 'var(--accent-blue)' : 'var(--accent-purple)',
             borderColor: isUser ? 'var(--accent-blue-medium)' : 'var(--accent-purple-medium)',
           }}
         >
-          {isUser ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+          {isUser ? <User className="w-3.5 h-3.5 md:w-4 md:h-4" /> : <Bot className="w-3.5 h-3.5 md:w-4 md:h-4" />}
         </div>
 
         {/* Message Bubble */}
         <div
-          className="rounded-2xl px-4 py-3 relative group"
+          className="rounded-2xl px-3 py-2.5 md:px-4 md:py-3 relative group"
           style={{
             backgroundColor: isUser ? 'var(--accent-blue-subtle)' : 'var(--bg-card)',
             borderColor: isUser ? 'var(--accent-blue-medium)' : 'var(--border-primary)',
@@ -169,7 +169,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
         >
           {/* Role Label & Actions */}
           <div
-            className={`flex items-center gap-1.5 mb-1.5 ${
+            className={`flex items-center gap-1.5 mb-1 md:mb-1.5 ${
               isUser ? 'justify-end' : 'justify-start'
             }`}
           >
@@ -194,8 +194,8 @@ export const MessageItem: React.FC<MessageItemProps> = ({
             {onToggleBookmark && (
               <button
                 onClick={() => onToggleBookmark(message.uuid)}
-                className={`ml-1 opacity-0 group-hover:opacity-100 transition-opacity ${
-                  isBookmarked ? 'opacity-100' : ''
+                className={`ml-1 p-1 rounded transition-opacity min-h-[32px] min-w-[32px] flex items-center justify-center md:opacity-0 md:group-hover:opacity-100 ${
+                  isBookmarked ? 'opacity-100' : 'opacity-100 md:opacity-0'
                 }`}
                 style={{
                   color: isBookmarked ? 'var(--accent-amber)' : 'var(--text-muted)',
@@ -213,9 +213,9 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                 title={isBookmarked ? 'Remove bookmark' : 'Add bookmark'}
               >
                 {isBookmarked ? (
-                  <BookmarkCheck className="w-3.5 h-3.5" />
+                  <BookmarkCheck className="w-4 h-4 md:w-3.5 md:h-3.5" />
                 ) : (
-                  <Bookmark className="w-3.5 h-3.5" />
+                  <Bookmark className="w-4 h-4 md:w-3.5 md:h-3.5" />
                 )}
               </button>
             )}
@@ -223,7 +223,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
 
           {/* Content */}
           <div
-            className="text-sm whitespace-pre-wrap break-words"
+            className="text-sm whitespace-pre-wrap break-words overflow-x-auto"
             style={{ color: 'var(--text-secondary)' }}
           >
             {renderContent()}

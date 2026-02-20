@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import type { Session } from '../types';
 import { useTranslation } from '../hooks/useTranslation';
+import { useIsMobile } from '../hooks/useMediaQuery';
 
 interface TrendData {
   label: string;
@@ -18,6 +19,7 @@ export const TrendChart: React.FC<TrendChartProps> = ({
   days = 14,
 }) => {
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
 
   const trendData = useMemo(() => {
     const now = new Date();
@@ -62,7 +64,7 @@ export const TrendChart: React.FC<TrendChartProps> = ({
 
   // Calculate SVG path for the line
   const svgWidth = 600;
-  const svgHeight = 120;
+  const svgHeight = isMobile ? 100 : 120;
   const padding = { top: 10, right: 10, bottom: 30, left: 40 };
   const chartWidth = svgWidth - padding.left - padding.right;
   const chartHeight = svgHeight - padding.top - padding.bottom;
@@ -82,23 +84,23 @@ export const TrendChart: React.FC<TrendChartProps> = ({
 
   return (
     <div
-      className="p-4 rounded-lg border"
+      className="p-3 md:p-4 rounded-lg border"
       style={{
         backgroundColor: 'var(--bg-secondary)',
         borderColor: 'var(--border-primary)',
       }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className={`flex ${isMobile ? 'flex-col gap-2' : 'items-center justify-between'} mb-4`}>
         <h3
           className="text-sm font-medium"
           style={{ color: 'var(--text-secondary)' }}
         >
           {t('activity.trend')}
         </h3>
-        <div className="flex items-center gap-4 text-xs" style={{ color: 'var(--text-muted)' }}>
+        <div className="flex items-center gap-2 md:gap-4 text-xs" style={{ color: 'var(--text-muted)' }}>
           <span>{t('activity.total')}: {totalSessions}</span>
-          <span>{t('activity.average')}: {averageCount.toFixed(1)}/{t('time.day')}</span>
+          {!isMobile && <span>{t('activity.average')}: {averageCount.toFixed(1)}/{t('time.day')}</span>}
         </div>
       </div>
 
@@ -106,7 +108,7 @@ export const TrendChart: React.FC<TrendChartProps> = ({
       <svg
         viewBox={`0 0 ${svgWidth} ${svgHeight}`}
         className="w-full"
-        style={{ minHeight: '120px' }}
+        style={{ minHeight: isMobile ? '100px' : '120px' }}
       >
         {/* Gradient definition */}
         <defs>

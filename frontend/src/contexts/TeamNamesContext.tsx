@@ -17,7 +17,7 @@ interface TeamNamesContextType {
 // Legacy localStorage key for migration
 const LEGACY_STORAGE_KEY = 'claude-viewer-team-names';
 
-const API_BASE_URL = ''; // Use relative URL to leverage Vite proxy
+const API_BASE_URL = ''; // Use relative URLs for proxy support
 
 const TeamNamesContext = createContext<TeamNamesContextType | null>(null);
 

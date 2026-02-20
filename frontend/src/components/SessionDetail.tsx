@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useCallback, useDeferredValue } from 'react';
-import { Star, Edit3, Check, X } from 'lucide-react';
+import { Star, Edit3, Check, X, ArrowLeft } from 'lucide-react';
+import { useMobile } from '../contexts/MobileContext';
 import type { Session } from '../types';
 import { useSessionNames } from '../hooks/useSessionNames';
 import { useSessionTags } from '../hooks/useSessionTags';
@@ -35,6 +36,7 @@ export const SessionDetail: React.FC<SessionDetailProps> = ({ session, isUpdatin
   // Hooks
   const { t } = useTranslation();
   const { getSessionName, setSessionName, hasCustomName } = useSessionNames();
+  const { isMobile, openDrawer } = useMobile();
   const { getSessionTags, addTag, removeTag, getAllTags } = useSessionTags();
   const { bookmarks, toggleBookmark } = useBookmarks(session?.sessionId);
 
@@ -156,18 +158,32 @@ export const SessionDetail: React.FC<SessionDetailProps> = ({ session, isUpdatin
     <div className="flex flex-col h-full" style={{ backgroundColor: 'var(--bg-primary)' }}>
       {/* Header */}
       <div
-        className="px-5 py-4 border-b"
+        className="px-3 md:px-5 py-3 md:py-4 border-b"
         style={{
           borderColor: 'var(--border-primary)',
           backgroundColor: 'var(--bg-secondary)',
         }}
       >
         {/* Title row with Favorite and Tags */}
-        <div className="flex items-start justify-between gap-4 mb-4">
+        <div className="flex items-start justify-between gap-2 md:gap-4 mb-3 md:mb-4">
+          {/* Back button - Mobile only */}
+          {isMobile && (
+            <button
+              onClick={openDrawer}
+              className="flex-shrink-0 p-2 rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+              style={{
+                color: 'var(--text-muted)',
+                backgroundColor: 'var(--bg-tertiary)',
+              }}
+              title={t('navigation.backToList')}
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          )}
           <SessionHeader isUpdating={isUpdating} />
 
           {/* Favorite and Tags - Right side */}
-          <div className="flex items-center gap-3 max-w-[400px]">
+          <div className="hidden md:flex items-center gap-3 max-w-[400px]">
             {/* Favorite / Custom Name button */}
             {isEditingName ? (
               <div className="flex items-center gap-1">

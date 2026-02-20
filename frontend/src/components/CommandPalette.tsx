@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react';
-import { Search, LayoutDashboard, List, Users, FolderGit2, MessageSquare, RefreshCw, Command } from 'lucide-react';
+import { Search, LayoutDashboard, List, Users, FolderGit2, MessageSquare, RefreshCw, Command, X } from 'lucide-react';
 import { useTranslation } from '../hooks/useTranslation';
+import { useMobile } from '../contexts/MobileContext';
 import type { Command as CommandType } from '../hooks/useCommandPalette';
 
 interface CommandPaletteProps {
@@ -62,6 +63,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onClose,
 }) => {
   const { t } = useTranslation();
+  const { isMobile } = useMobile();
   const inputRef = useRef<HTMLInputElement>(null);
   const selectedRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -106,24 +108,32 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center pt-[20vh]"
+      className={`fixed inset-0 z-50 ${
+        isMobile
+          ? 'flex flex-col pt-safe-area-top pb-safe-area-bottom'
+          : 'flex items-start justify-center pt-[20vh]'
+      }`}
       style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
       onClick={(e) => {
-        if (e.target === e.currentTarget) {
+        if (e.target === e.currentTarget && !isMobile) {
           onClose();
         }
       }}
     >
       <div
-        className="w-full max-w-2xl rounded-lg shadow-2xl overflow-hidden"
+        className={`${
+          isMobile
+            ? 'w-full h-full flex flex-col rounded-none'
+            : 'w-full max-w-2xl rounded-lg shadow-2xl'
+        } overflow-hidden`}
         style={{
           backgroundColor: 'var(--bg-primary)',
-          border: '1px solid var(--border-primary)',
+          border: isMobile ? 'none' : '1px solid var(--border-primary)',
         }}
       >
         {/* Search Input */}
         <div
-          className="flex items-center gap-3 px-4 py-4 border-b"
+          className="flex items-center gap-3 px-4 py-4 border-b safe-area-left safe-area-right"
           style={{ borderColor: 'var(--border-primary)' }}
         >
           <Search className="w-5 h-5" style={{ color: 'var(--text-muted)' }} />
@@ -136,21 +146,40 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             className="flex-1 bg-transparent text-base outline-none"
             style={{ color: 'var(--text-primary)' }}
           />
-          <kbd
-            className="px-2 py-1 text-xs rounded"
-            style={{
-              backgroundColor: 'var(--bg-tertiary)',
-              color: 'var(--text-muted)',
-            }}
-          >
-            ESC
-          </kbd>
+          {isMobile ? (
+            <button
+              onClick={onClose}
+              className="p-2 rounded-md transition-colors"
+              style={{ color: 'var(--text-muted)' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
+              aria-label={t('common.close')}
+            >
+              <X className="w-5 h-5" />
+            </button>
+          ) : (
+            <kbd
+              className="px-2 py-1 text-xs rounded"
+              style={{
+                backgroundColor: 'var(--bg-tertiary)',
+                color: 'var(--text-muted)',
+              }}
+            >
+              ESC
+            </kbd>
+          )}
         </div>
 
         {/* Commands List */}
         <div
           ref={listRef}
-          className="max-h-[50vh] overflow-y-auto py-2"
+          className={`overflow-y-auto py-2 flex-1 ${
+            isMobile ? 'safe-area-left safe-area-right' : 'max-h-[50vh]'
+          }`}
         >
           {commands.length === 0 ? (
             <div
@@ -245,7 +274,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
         {/* Footer */}
         <div
-          className="px-4 py-2 flex items-center justify-between text-xs border-t"
+          className={`px-4 py-2 flex items-center justify-between text-xs border-t ${
+            isMobile ? 'safe-area-left safe-area-right safe-area-bottom' : ''
+          }`}
           style={{
             backgroundColor: 'var(--bg-secondary)',
             borderColor: 'var(--border-primary)',

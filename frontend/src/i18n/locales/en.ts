@@ -73,6 +73,7 @@ export const en: TranslationSchema = {
     conversation: 'Conversation',
     noInputs: 'No inputs in this session',
     empty: '(empty)',
+    selectSession: 'Select a session to view details',
   },
   team: {
     title: 'Agent Teams',

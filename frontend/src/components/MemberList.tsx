@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
-import { User, Circle } from 'lucide-react';
+import { User, Circle, ChevronRight } from 'lucide-react';
 import { getMemberColor } from '../utils/colors';
 import type { TeamMember, MemberInbox, Message } from '../types';
+import { useIsMobile } from '../hooks/useMediaQuery';
 
 interface MemberListProps {
   members: TeamMember[];
@@ -239,6 +240,8 @@ export const MemberList: React.FC<MemberListProps> = ({
   messageCounts,
   inboxes,
 }) => {
+  const isMobile = useIsMobile();
+
   // Create member status mapping from inboxes
   const memberStatuses = useMemo(() => {
     const statuses: Record<string, string> = {};
@@ -247,6 +250,7 @@ export const MemberList: React.FC<MemberListProps> = ({
     });
     return statuses;
   }, [inboxes]);
+
   if (members.length === 0) {
     return (
       <div
@@ -295,7 +299,7 @@ export const MemberList: React.FC<MemberListProps> = ({
     >
       {/* Header */}
       <div
-        className="px-5 py-3.5 border-b"
+        className="px-4 md:px-5 py-3 md:py-3.5 border-b"
         style={{
           borderColor: 'var(--border-primary)',
           backgroundColor: 'var(--bg-secondary)',
@@ -330,7 +334,9 @@ export const MemberList: React.FC<MemberListProps> = ({
             <button
               key={member.name}
               onClick={() => onSelectMember(member.name)}
-              className="w-full px-3 py-2.5 text-left rounded-lg transition-all duration-150 border"
+              className={`w-full px-3 py-3 md:py-2.5 text-left rounded-lg transition-all duration-150 border ${
+                isMobile ? 'min-h-[64px] flex items-center' : ''
+              }`}
               style={{
                 backgroundColor: isSelected ? 'var(--accent-purple-subtle)' : 'transparent',
                 borderColor: isSelected ? 'var(--accent-purple-medium)' : 'transparent',
@@ -348,11 +354,11 @@ export const MemberList: React.FC<MemberListProps> = ({
                 }
               }}
             >
-              <div className="flex items-start gap-2.5">
-                {/* Avatar */}
+              <div className="flex items-center gap-3 w-full">
+                {/* Avatar - Mobile: 40px, Desktop: 36px */}
                 <div className="flex-shrink-0 relative">
                   <div
-                    className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold border"
+                    className={`${isMobile ? 'w-10 h-10 text-sm' : 'w-9 h-9 text-xs'} rounded-full flex items-center justify-center font-bold border`}
                     style={{
                       backgroundColor: `${color}30`,
                       color: color,
@@ -362,17 +368,30 @@ export const MemberList: React.FC<MemberListProps> = ({
                     {member.name.slice(0, 2).toUpperCase()}
                   </div>
                   <Circle
-                    className="w-2.5 h-2.5 absolute -bottom-0.5 -right-0.5 rounded-full border-2"
+                    className={`${isMobile ? 'w-3 h-3' : 'w-2.5 h-2.5'} absolute -bottom-0.5 -right-0.5 rounded-full border-2`}
                     style={{
                       backgroundColor: 'var(--bg-primary)',
                       borderColor: 'var(--bg-primary)',
                       color: getStatusColor(status),
                     }}
                   />
+                  {/* Mobile: Unread message badge */}
+                  {isMobile && messageCount > 0 && (
+                    <div
+                      className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold border-2"
+                      style={{
+                        backgroundColor: 'var(--accent-blue)',
+                        color: 'white',
+                        borderColor: 'var(--bg-primary)',
+                      }}
+                    >
+                      {messageCount > 9 ? '9+' : messageCount}
+                    </div>
+                  )}
                 </div>
 
                 {/* Info */}
-                <div className="flex-1 min-w-0 pt-0.5">
+                <div className="flex-1 min-w-0">
                   <div
                     className="font-medium text-sm truncate"
                     style={{
@@ -394,13 +413,21 @@ export const MemberList: React.FC<MemberListProps> = ({
                     >
                       {getStatusLabel(status)}
                     </span>
-                    {messageCount > 0 && (
+                    {!isMobile && messageCount > 0 && (
                       <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
                         {messageCount}
                       </span>
                     )}
                   </div>
                 </div>
+
+                {/* Mobile: Chevron indicator */}
+                {isMobile && (
+                  <ChevronRight
+                    className="w-4 h-4 flex-shrink-0"
+                    style={{ color: 'var(--text-muted)' }}
+                  />
+                )}
               </div>
             </button>
           );

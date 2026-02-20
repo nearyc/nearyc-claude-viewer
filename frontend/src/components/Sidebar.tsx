@@ -48,6 +48,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { theme, setTheme } = useTheme();
   const { locale, setLocale } = useI18n();
 
+  // Sidebar is hidden on mobile - use MobileBottomNav instead
+  // This component should only render on desktop/tablet
+
   const themeOptions: { id: ThemeId; icon: typeof Moon; label: string }[] = [
     { id: 'dark', icon: Moon, label: t('theme.dark') },
     { id: 'eyeCare', icon: Eye, label: t('theme.eyeCare') },
@@ -66,7 +69,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   return (
-    <div className="flex flex-col h-full" style={{ backgroundColor: 'var(--bg-primary)' }}>
+    <div className="hidden lg:flex flex-col h-full" style={{ backgroundColor: 'var(--bg-primary)' }}>
       {/* Logo/Header */}
       <div className="px-5 py-4 border-b" style={{ borderColor: 'var(--border-primary)' }}>
         <div className="flex items-center gap-2.5">

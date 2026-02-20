@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useTranslation } from '../hooks/useTranslation';
+import { useMobile } from '../contexts/MobileContext';
 
 interface ResizablePanelProps {
   children: React.ReactNode;
@@ -54,6 +55,7 @@ export const ResizablePanel: React.FC<ResizablePanelProps> = ({
   onResizeStart,
   onResizeEnd,
 }) => {
+  const { isMobile } = useMobile();
   const [width, setWidth] = useState(initialWidth);
   const [isResizing, setIsResizing] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -62,6 +64,8 @@ export const ResizablePanel: React.FC<ResizablePanelProps> = ({
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
+      // 移动端禁用拖拽
+      if (isMobile) return;
       e.preventDefault();
       e.stopPropagation();
       setIsResizing(true);
@@ -69,7 +73,7 @@ export const ResizablePanel: React.FC<ResizablePanelProps> = ({
       startWidthRef.current = panelRef.current?.offsetWidth || width;
       onResizeStart?.();
     },
-    [width, onResizeStart]
+    [width, onResizeStart, isMobile]
   );
 
   const handleMouseMove = useCallback(
@@ -127,17 +131,19 @@ export const ResizablePanel: React.FC<ResizablePanelProps> = ({
     >
       {children}
 
-      {/* Resize handle */}
-      <div
-        className={`absolute top-0 bottom-0 w-1 cursor-col-resize transition-colors z-10
-          ${direction === 'right' ? 'right-0' : 'left-0'}
-          ${isResizing ? 'bg-[var(--accent-blue)]' : 'bg-transparent hover:bg-[var(--accent-blue)]/50'}
-        `}
-        onMouseDown={handleMouseDown}
-        style={{
-          transform: direction === 'right' ? 'translateX(50%)' : 'translateX(-50%)',
-        }}
-      />
+      {/* Resize handle - 移动端隐藏 */}
+      {!isMobile && (
+        <div
+          className={`absolute top-0 bottom-0 w-1 cursor-col-resize transition-colors z-10
+            ${direction === 'right' ? 'right-0' : 'left-0'}
+            ${isResizing ? 'bg-[var(--accent-blue)]' : 'bg-transparent hover:bg-[var(--accent-blue)]/50'}
+          `}
+          onMouseDown={handleMouseDown}
+          style={{
+            transform: direction === 'right' ? 'translateX(50%)' : 'translateX(-50%)',
+          }}
+        />
+      )}
     </div>
   );
 };

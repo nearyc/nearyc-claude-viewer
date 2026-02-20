@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import type { Session } from '../types';
 import { useTranslation } from '../hooks/useTranslation';
+import { useIsMobile } from '../hooks/useMediaQuery';
 
 interface ActivityData {
   date: string; // YYYY-MM-DD
@@ -18,6 +19,7 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
   days = 90,
 }) => {
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
 
   const heatmapData = useMemo(() => {
     const now = new Date();
@@ -100,24 +102,24 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
 
   return (
     <div
-      className="p-4 rounded-lg border"
+      className="p-3 md:p-4 rounded-lg border"
       style={{
         backgroundColor: 'var(--bg-secondary)',
         borderColor: 'var(--border-primary)',
       }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className={`flex ${isMobile ? 'flex-col gap-2' : 'items-center justify-between'} mb-4`}>
         <h3
           className="text-sm font-medium"
           style={{ color: 'var(--text-secondary)' }}
         >
           {t('activity.title')}
         </h3>
-        <div className="flex items-center gap-4 text-xs" style={{ color: 'var(--text-muted)' }}>
+        <div className={`flex items-center gap-2 md:gap-4 text-xs`} style={{ color: 'var(--text-muted)' }}>
           <span>{t('activity.sessionsCount')}: {totalSessions}</span>
           <span>{t('activity.activeDays')}: {activeDays}</span>
-          {maxSessionsInDay > 0 && <span>{t('activity.maxPerDay')}: {maxSessionsInDay}</span>}
+          {maxSessionsInDay > 0 && !isMobile && <span>{t('activity.maxPerDay')}: {maxSessionsInDay}</span>}
         </div>
       </div>
 
@@ -128,7 +130,7 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
             {week.map((day, dayIndex) => (
               <div
                 key={`${weekIndex}-${dayIndex}`}
-                className="w-3 h-3 rounded-sm transition-all hover:ring-2 cursor-pointer"
+                className={`${isMobile ? 'w-2.5 h-2.5' : 'w-3 h-3'} rounded-sm transition-all hover:ring-2 cursor-pointer`}
                 style={{ backgroundColor: getColor(day.level) }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.boxShadow = '0 0 0 2px var(--accent-blue)';
@@ -149,7 +151,7 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
         {[0, 1, 2, 3, 4].map((level) => (
           <div
             key={level}
-            className="w-3 h-3 rounded-sm"
+            className={`${isMobile ? 'w-2.5 h-2.5' : 'w-3 h-3'} rounded-sm`}
             style={{ backgroundColor: getColor(level) }}
           />
         ))}
