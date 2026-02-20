@@ -45,6 +45,19 @@ npm run dev
 Frontend: http://localhost:5173
 Backend: http://localhost:13927
 
+### Mobile Access
+Access via Tailscale or local network for mobile devices:
+```
+http://<your-ip>:5173
+```
+
+**Mobile Features:**
+- Touch-optimized session list with always-visible actions
+- Bottom navigation bar for easy switching
+- Swipe gestures for quick actions (favorite/delete)
+- Responsive layout adapts to screen size
+- Pull-to-refresh support
+
 ### Build
 ```bash
 npm run build
@@ -154,6 +167,19 @@ npm run dev
 
 前端: http://localhost:5173
 后端: http://localhost:13927
+
+### 移动端访问
+通过 Tailscale 或局域网在移动设备上访问：
+```
+http://<你的IP>:5173
+```
+
+**移动端特性：**
+- 触摸优化的会话列表，操作按钮始终可见
+- 底部导航栏，方便快速切换
+- 滑动手势快速操作（收藏/删除）
+- 自适应屏幕尺寸的响应式布局
+- 支持下拉刷新
 
 ### 构建
 ```bash
