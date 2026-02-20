@@ -1,12 +1,10 @@
 import express from 'express';
 import { createServer } from 'http';
-import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import path from 'path';
 import os from 'os';
-import type { Socket } from 'socket.io';
 
 import { createSessionsRouter } from './routes/sessions';
 import { createTeamsRouter } from './routes/teams';
@@ -23,8 +21,8 @@ import { FavoritesService } from './services/favoritesService';
 import { ActivityService, getGlobalActivityService } from './services/activityService';
 import { CodeStatsService } from './services/codeStatsService';
 import { FileWatcher } from './services/fileWatcher';
-import type { FileWatcherChangeEvent } from './services/fileWatcher';
-import type { DashboardStats, TypedSocket } from './types';
+import { SSEController } from './services/SSEController';
+import { eventBus } from './services/EventBus';
 
 // API Key validation helper
 function validateApiKey(key: string | undefined): boolean {
@@ -38,8 +36,8 @@ function validateApiKey(key: string | undefined): boolean {
 
 // API Key authentication middleware
 function apiKeyAuth(req: express.Request, res: express.Response, next: express.NextFunction): void {
-  // Skip authentication for health check endpoint
-  if (req.path === '/api/health') {
+  // Skip authentication for health check and SSE endpoints
+  if (req.path === '/api/health' || req.path === '/api/sse') {
     next();
     return;
   }
@@ -51,19 +49,6 @@ function apiKeyAuth(req: express.Request, res: express.Response, next: express.N
       success: false,
       error: 'Unauthorized: Invalid or missing API key',
     });
-    return;
-  }
-
-  next();
-}
-
-// Socket.IO authentication middleware
-function socketAuth(socket: Socket, next: (err?: Error) => void): void {
-  const token = socket.handshake.auth.token as string | undefined ??
-                socket.handshake.query.token as string | undefined;
-
-  if (!validateApiKey(token)) {
-    next(new Error('Unauthorized: Invalid or missing authentication token'));
     return;
   }
 
@@ -97,8 +82,8 @@ function getCorsOrigins(): string[] {
 export interface ServerInstance {
   app: express.Application;
   httpServer: ReturnType<typeof createServer>;
-  io: SocketIOServer;
   fileWatcher: FileWatcher;
+  sseController: SSEController;
   sessionsService: SessionsService;
   teamsService: TeamsService;
   statsService: StatsService;
@@ -112,9 +97,11 @@ export function createServerInstance(): ServerInstance {
   // Get paths from environment or use defaults
   const historyFilePath = process.env.HISTORY_FILE_PATH || path.join(os.homedir(), '.claude', 'history.jsonl');
   const teamsDir = process.env.TEAMS_DIR || path.join(os.homedir(), '.claude', 'teams');
+  const projectsDir = path.join(path.dirname(historyFilePath), 'projects');
 
   console.log('[Server] History file path:', historyFilePath);
   console.log('[Server] Teams directory:', teamsDir);
+  console.log('[Server] Projects directory:', projectsDir);
 
   // Create services
   const sessionsService = new SessionsService(historyFilePath);
@@ -124,7 +111,12 @@ export function createServerInstance(): ServerInstance {
   const codeStatsService = new CodeStatsService(sessionsService, teamsService, historyFilePath, teamsDir);
   const activityService = getGlobalActivityService();
   const favoritesService = new FavoritesService();
-  const fileWatcher = new FileWatcher(historyFilePath, teamsDir);
+
+  // Create FileWatcher with new fs.watch architecture
+  const fileWatcher = new FileWatcher(projectsDir);
+
+  // Create SSE Controller
+  const sseController = new SSEController();
 
   // Create Express app
   const app = express();
@@ -136,7 +128,7 @@ export function createServerInstance(): ServerInstance {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'", "'unsafe-inline'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
-        connectSrc: ["'self'", "ws:", "wss:"],
+        connectSrc: ["'self'"],
         imgSrc: ["'self'", "data:", "blob:"],
         fontSrc: ["'self'"],
         objectSrc: ["'none'"],
@@ -194,70 +186,14 @@ export function createServerInstance(): ServerInstance {
     reusePort: true
   }, app);
 
-  // Create Socket.IO server early
-  const io = new SocketIOServer(httpServer, {
-    cors: {
-      origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-        // Allow requests with no origin (e.g., mobile apps, curl requests)
-        if (!origin) {
-          callback(null, true);
-          return;
-        }
-
-        // Allow configured origins
-        if (allowedOrigins.includes(origin)) {
-          callback(null, true);
-          return;
-        }
-
-        // Allow Tailscale IP range (100.64.0.0/10) for mobile access
-        if (origin.match(/^https?:\/\/100\.(6[4-9]|[7-9]\d|1[0-1]\d|12[0-7])\.\d{1,3}\.\d{1,3}(:\d+)?$/)) {
-          callback(null, true);
-          return;
-        }
-
-        // Allow any localhost origin for development
-        if (origin.match(/^https?:\/\/localhost(:\d+)?$/)) {
-          callback(null, true);
-          return;
-        }
-
-        callback(new Error(`CORS policy does not allow access from origin: ${origin}`));
-      },
-      methods: ['GET', 'POST'],
-      credentials: true,
-    },
+  // SSE endpoint - handles server-sent events
+  app.get('/api/sse', (req, res) => {
+    sseController.handleConnection(res);
   });
 
-  // Socket.IO authentication middleware
-  io.use(socketAuth);
-
-  // Helper function to broadcast stats to all clients
-  async function broadcastStats() {
-    try {
-      const sessions = await sessionsService.getSessions();
-      const projects = await sessionsService.getProjects();
-      const teams = await teamsService.getTeams();
-
-      const stats: DashboardStats = {
-        totalSessions: sessions.length,
-        totalProjects: projects.length,
-        totalInputs: sessions.reduce((sum, s) => sum + s.inputCount, 0),
-        totalTeams: teams.length,
-        totalMembers: teams.reduce((sum, t) => sum + t.memberCount, 0),
-        recentSessions: sessions.slice(0, 10),
-        recentTeams: teams.slice(0, 10),
-      };
-
-      io.emit('stats:updated', stats);
-    } catch (error) {
-      console.error('[Server] Error broadcasting stats:', error);
-    }
-  }
-
-  // Routes (defined after io is created so it can be passed to routers)
-  app.use('/api/sessions', createSessionsRouter({ sessionsService, io }));
-  app.use('/api/teams', createTeamsRouter({ teamsService, io }));
+  // Routes (without Socket.IO dependency)
+  app.use('/api/sessions', createSessionsRouter({ sessionsService }));
+  app.use('/api/teams', createTeamsRouter({ teamsService }));
   app.use('/api/projects', createProjectsRouter(sessionsService));
   app.use('/api/stats', createStatsRouter({ statsService, codeStatsService }));
   app.use('/api/search', createSearchRouter({ searchService }));
@@ -275,6 +211,7 @@ export function createServerInstance(): ServerInstance {
         data: {
           status: 'ok',
           timestamp: new Date().toISOString(),
+          sseClients: sseController.getClientCount(),
           cache: {
             sessions: sessionStats,
             teams: teamStats,
@@ -289,257 +226,41 @@ export function createServerInstance(): ServerInstance {
     }
   });
 
-  // Socket.IO connection handling
-  io.on('connection', (socket: TypedSocket) => {
-    console.log('[Socket] Client connected:', socket.id);
+  // Listen to EventBus events and forward to SSE clients
+  eventBus.on('sessionChanged', async (event) => {
+    console.log('[EventBus] sessionChanged:', event.projectId, event.sessionId);
 
-    // Initialize subscription tracking
-    socket.data.subscribedSessions = new Set();
-    socket.data.subscribedTeams = new Set();
+    // Clear cache and get updated session
+    sessionsService.clearCache();
+    const updatedSession = await sessionsService.getSessionWithConversation(event.sessionId);
 
-    // Send initial sessions data
-    sessionsService.getSessions().then((sessions) => {
-      socket.emit('sessions:initial', { sessions });
-    });
-
-    // Send initial projects data
-    sessionsService.getProjects().then((projects) => {
-      socket.emit('projects:initial', { projects });
-    });
-
-    // Send initial teams data
-    teamsService.getTeams().then((teams) => {
-      socket.emit('teams:initial', { teams });
-    });
-
-    // Send initial stats
-    broadcastStats();
-
-    // Handle session subscription
-    socket.on('session:subscribe', (sessionId: string) => {
-      console.log('[Socket] Client subscribed to session:', sessionId);
-      socket.join(`session:${sessionId}`);
-      socket.data.subscribedSessions.add(sessionId);
-
-      // Send session data immediately
-      sessionsService.getSessionById(sessionId).then((session) => {
-        if (session) {
-          socket.emit('session:data', session);
-        }
-      });
-    });
-
-    // Handle session unsubscription
-    socket.on('session:unsubscribe', (sessionId: string) => {
-      console.log('[Socket] Client unsubscribed from session:', sessionId);
-      socket.leave(`session:${sessionId}`);
-      socket.data.subscribedSessions.delete(sessionId);
-    });
-
-    // Handle team subscription
-    socket.on('team:subscribe', (teamId: string) => {
-      console.log('[Socket] Client subscribed to team:', teamId);
-      socket.join(`team:${teamId}`);
-      socket.data.subscribedTeams.add(teamId);
-
-      // Send initial team data with inboxes
-      teamsService.getTeamWithInboxes(teamId).then((team) => {
-        if (team) {
-          socket.emit('team:data', team);
-        }
-      });
-    });
-
-    // Handle team unsubscription
-    socket.on('team:unsubscribe', (teamId: string) => {
-      console.log('[Socket] Client unsubscribed from team:', teamId);
-      socket.leave(`team:${teamId}`);
-      socket.data.subscribedTeams.delete(teamId);
-    });
-
-    socket.on('disconnect', () => {
-      console.log('[Socket] Client disconnected:', socket.id);
-    });
-  });
-
-  // File watcher event handling
-  fileWatcher.on('change', async (event: FileWatcherChangeEvent) => {
-    console.log('[FileWatcher] Change detected:', event.path, event.type, 'source:', event.source);
-
-    // Handle new team directory creation
-    if (event.type === 'addDir' && event.source === 'teams') {
-      console.log('[FileWatcher] New team directory detected, refreshing teams data');
-      const teams = await teamsService.getTeams();
-      io.emit('teams:updated', { teams });
-      broadcastStats();
-      return;
-    }
-
-    if (event.source === 'sessions' || event.source === 'projects') {
-      // Sessions or projects data changed - broadcast to all clients
-      const sessions = await sessionsService.getSessions();
-      const projects = await sessionsService.getProjects();
-
-      io.emit('sessions:updated', { sessions });
-      io.emit('projects:updated', { projects });
-      broadcastStats();
-
-      console.log('[Socket] Broadcasted sessions:updated and projects:updated to all clients');
-
-      // Check if it's a specific session file change in projects directory
-      if (event.source === 'projects' && event.path.endsWith('.jsonl')) {
-        const relativePath = path.relative(sessionsService.getProjectsDir(), event.path);
-        const pathParts = relativePath.split(/[\\/]/);
-        if (pathParts.length >= 2) {
-          const sessionId = path.basename(pathParts[1], '.jsonl');
-          console.log('[Socket] Session file changed:', sessionId);
-
-          // Clear cache for this session to force reload
-          sessionsService.clearCache();
-
-          // Get updated session with conversation and broadcast to subscribers
-          const updatedSession = await sessionsService.getSessionWithConversation(sessionId);
-          if (updatedSession) {
-            io.to(`session:${sessionId}`).emit('session:data', updatedSession);
-            io.to(`session:${sessionId}`).emit('session:updated', { session: updatedSession });
-            console.log('[Socket] Broadcasted session update to subscribers of:', sessionId);
-
-            // Record session updated activity
-            activityService.recordSessionUpdated(
-              sessionId,
-              updatedSession.project,
-              updatedSession.messageCount
-            );
-          }
-        }
-      }
-
-      // Record session created activity for new sessions
-      if (event.type === 'add' && event.source === 'projects' && event.path.endsWith('.jsonl')) {
-        const relativePath = path.relative(sessionsService.getProjectsDir(), event.path);
-        const pathParts = relativePath.split(/[\\/]/);
-        if (pathParts.length >= 2) {
-          const sessionId = path.basename(pathParts[1], '.jsonl');
-          const session = await sessionsService.getSessionById(sessionId);
-          if (session) {
-            activityService.recordSessionCreated(
-              sessionId,
-              session.project,
-              session.inputs[0]?.display
-            );
-          }
-        }
-      }
-    } else if (event.source === 'teams') {
-      // Teams data changed - clear cache and broadcast to all clients
-      teamsService.clearCache();
-      const teams = await teamsService.getTeams();
-      io.emit('teams:updated', { teams });
-
-      console.log('[Socket] Broadcasted teams:updated to all clients');
-      broadcastStats();
-
-      // Check if it's a specific team config change
-      const relativePath = path.relative(teamsDir, event.path);
-      const pathParts = relativePath.split(/[\\/]/);
-      if (pathParts.length >= 2 && pathParts[1] === 'config.json') {
-        const teamId = pathParts[0];
-        // Broadcast specific team update to subscribers
-        const team = await teamsService.getTeamWithInboxes(teamId);
-        if (team) {
-          io.to(`team:${teamId}`).emit('team:data', team);
-        }
-      }
-
-      // Check if it's a messages change (inbox file)
-      if (pathParts.length >= 3 && pathParts[1] === 'inboxes') {
-        const teamId = pathParts[0];
-        const fileName = path.basename(pathParts[2], '.json');
-
-        // Try to find the actual member name from config (handles filename vs member name mismatch)
-        let memberName = fileName;
-        const teamConfig = await teamsService.getTeamConfig(teamId);
-        if (teamConfig?.members) {
-          // Try exact match first
-          const exactMatch = teamConfig.members.find(m => m.name === fileName);
-          if (exactMatch) {
-            memberName = exactMatch.name;
-          } else {
-            // Try to match by stripping non-alphanumeric characters
-            const normalizedFileName = fileName.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '');
-            const fuzzyMatch = teamConfig.members.find(m => {
-              const normalizedMemberName = m.name.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '');
-              return normalizedMemberName === normalizedFileName ||
-                     normalizedMemberName.includes(normalizedFileName) ||
-                     normalizedFileName.includes(normalizedMemberName);
-            });
-            if (fuzzyMatch) {
-              memberName = fuzzyMatch.name;
-              console.log(`[Socket] Mapped filename '${fileName}' to member '${memberName}'`);
-            }
-          }
-        }
-
-        const messages = await teamsService.getMessages(teamId, memberName);
-        io.to(`team:${teamId}`).emit('team:messages', {
-          teamId,
-          memberId: memberName,
-          messages,
-        });
-
-        // Also broadcast updated team data with new message counts
-        const teamWithInboxes = await teamsService.getTeamWithInboxes(teamId);
-        if (teamWithInboxes) {
-          io.to(`team:${teamId}`).emit('team:data', teamWithInboxes);
-        }
-
-        console.log('[Socket] Broadcasted team:messages to team:', teamId);
-
-        // Record team message activity for the latest message
-        if (messages.length > 0) {
-          const latestMessage = messages[messages.length - 1];
-          activityService.recordTeamMessage(
-            teamId,
-            latestMessage.sender,
-            latestMessage.recipient,
-            latestMessage.content
-          );
-        }
-      }
+    if (updatedSession) {
+      // Record activity
+      activityService.recordSessionUpdated(
+        event.sessionId,
+        updatedSession.project,
+        updatedSession.messageCount
+      );
     }
   });
 
-  fileWatcher.on('ready', async () => {
-    console.log('[FileWatcher] Ready - loading initial data');
-
-    // Load initial data
-    await sessionsService.loadSessions();
-
-    // Broadcast initial data to all clients
-    const sessions = await sessionsService.getSessions();
-    const projects = await sessionsService.getProjects();
-    const teams = await teamsService.getTeams();
-
-    io.emit('sessions:updated', { sessions });
-    io.emit('projects:updated', { projects });
-    io.emit('teams:updated', { teams });
-    broadcastStats();
-
-    console.log('[Server] Initial data broadcast complete');
+  eventBus.on('sessionListChanged', async (event) => {
+    console.log('[EventBus] sessionListChanged:', event.projectId);
   });
 
-  fileWatcher.on('error', (error: Error) => {
-    console.error('[FileWatcher] Error:', error);
+  eventBus.on('agentSessionChanged', async (event) => {
+    console.log('[EventBus] agentSessionChanged:', event.projectId, event.agentSessionId);
   });
 
   // Start file watcher
   fileWatcher.start();
+  console.log('[Server] FileWatcher started');
 
   return {
     app,
     httpServer,
-    io,
     fileWatcher,
+    sseController,
     sessionsService,
     teamsService,
     statsService,

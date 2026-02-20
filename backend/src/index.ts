@@ -2,7 +2,7 @@ import { createServerInstance } from './server';
 
 const PORT = process.env.PORT || 13927;
 
-const { httpServer, fileWatcher } = createServerInstance();
+const { httpServer, fileWatcher, sseController } = createServerInstance();
 
 httpServer.listen(PORT, () => {
   console.log(`
@@ -13,6 +13,7 @@ Server running on http://localhost:${PORT}
 
 API endpoints:
   GET  /api/health                - Health check
+  GET  /api/sse                  - SSE endpoint for real-time events
   GET  /api/sessions              - List all sessions
   GET  /api/sessions?refresh=true - Force refresh from disk
   GET  /api/sessions?limit=N      - List N most recent sessions
@@ -35,18 +36,11 @@ API endpoints:
   GET  /api/stats/usage           - Get usage statistics
   GET  /api/stats/code-output     - Get code output statistics
 
-WebSocket events:
-  sessions:initial    - Initial sessions data on connect
-  sessions:updated    - Sessions data updated
-  session:data        - Single session data
-  session:updated     - Single session update
-  projects:initial    - Initial projects data on connect
-  projects:updated    - Projects data updated
-  teams:initial       - Initial teams data on connect
-  teams:updated       - Teams list updated
-  team:data           - Full team data with members and inboxes
-  team:messages       - Team messages update
-  stats:updated       - Dashboard stats update
+SSE Events (Server-Sent Events):
+  connect             - Connection established
+  sessionChanged      - Session data changed
+  sessionListChanged  - Session list changed
+  agentSessionChanged - Agent session changed
 
 Environment:
   PORT=${PORT}

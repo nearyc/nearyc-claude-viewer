@@ -1,147 +1,145 @@
-import chokidar from 'chokidar';
+import { watch, type FSWatcher } from 'fs';
 import path from 'path';
-import { EventEmitter } from 'events';
-import type { FileWatcherEvent } from '../types';
+import { eventBus } from './EventBus';
+import { parseSessionFilePath } from '../utils/parseSessionFilePath';
 
-export type DataSourceType = 'sessions' | 'teams' | 'projects';
-
-export interface FileWatcherChangeEvent extends FileWatcherEvent {
-  source: DataSourceType;
-}
-
-export class FileWatcher extends EventEmitter {
-  private watcher: chokidar.FSWatcher | null = null;
-  private historyFilePath: string;
+/**
+ * FileWatcher - 文件监视服务
+ * 使用 Node.js 原生 fs.watch + 防抖机制监视项目目录中的 .jsonl 文件变化
+ */
+export class FileWatcher {
+  private watcher: FSWatcher | null = null;
   private projectsDir: string;
-  private teamsDir: string;
+  private debounceTimers: Map<string, NodeJS.Timeout> = new Map();
+  private readonly DEBOUNCE_MS = 100;
+  private isWatching = false;
 
-  constructor(historyFilePath: string, teamsDir: string) {
-    super();
-    this.historyFilePath = path.normalize(historyFilePath);
-    this.projectsDir = path.normalize(path.join(path.dirname(historyFilePath), 'projects'));
-    this.teamsDir = path.normalize(teamsDir);
+  constructor(projectsDir: string) {
+    this.projectsDir = path.normalize(projectsDir);
   }
 
+  /**
+   * 启动文件监视
+   */
   start(): void {
-    // Watch all three data sources:
-    // 1. ~/.claude/history.jsonl (Sessions)
-    // 2. ~/.claude/projects/**/*.jsonl (Session details)
-    // 3. ~/.claude/teams/**/*.json (Teams)
-    const watchPaths = [
-      this.historyFilePath,
-      path.join(this.projectsDir, '**', '*.jsonl'),
-      path.join(this.teamsDir, '**', '*.json'),
-    ];
+    if (this.isWatching) {
+      console.log('[FileWatcher] Already watching');
+      return;
+    }
 
-    const isWindows = process.platform === 'win32';
-    console.log(`[FileWatcher] Starting with platform: ${process.platform}, usePolling: ${isWindows}`);
-    console.log(`[FileWatcher] Watching paths:`, watchPaths);
+    console.log(`[FileWatcher] Starting on: ${this.projectsDir}`);
 
-    this.watcher = chokidar.watch(watchPaths, {
-      ignored: [
-        /(^|[\\/])\../, // ignore dotfiles
-        /subagents/, // ignore subagent files
-      ],
-      persistent: true,
-      ignoreInitial: false,
-      depth: 5,
-      usePolling: isWindows, // Use polling on Windows for better reliability
-      interval: 500, // Polling interval in ms
-      binaryInterval: 500,
-      awaitWriteFinish: {
-        stabilityThreshold: 300,
-        pollInterval: 300
-      },
-    });
+    try {
+      this.watcher = watch(
+        this.projectsDir,
+        { recursive: true, persistent: false },
+        (eventType, filename) => {
+          if (!filename) return;
 
-    this.watcher
-      .on('add', (filePath: string) => {
-        console.log('[FileWatcher] File added:', filePath);
-        this.emit('change', {
-          path: filePath,
-          type: 'add',
-          source: this.getDataSource(filePath),
-        } as FileWatcherChangeEvent);
-      })
-      .on('change', (filePath: string) => {
-        console.log('[FileWatcher] File changed:', filePath);
-        this.emit('change', {
-          path: filePath,
-          type: 'change',
-          source: this.getDataSource(filePath),
-        } as FileWatcherChangeEvent);
-      })
-      .on('unlink', (filePath: string) => {
-        console.log('[FileWatcher] File removed:', filePath);
-        this.emit('change', {
-          path: filePath,
-          type: 'unlink',
-          source: this.getDataSource(filePath),
-        } as FileWatcherChangeEvent);
-      })
-      .on('addDir', (dirPath: string) => {
-        // Handle new directory creation (e.g., new team directory)
-        console.log('[FileWatcher] Directory added:', dirPath);
-        const normalizedDirPath = path.normalize(dirPath);
-        if (normalizedDirPath.startsWith(this.teamsDir) && normalizedDirPath !== this.teamsDir) {
-          // A new team directory was created, trigger teams update
-          this.emit('change', {
-            path: dirPath,
-            type: 'addDir',
-            source: 'teams',
-          } as FileWatcherChangeEvent);
+          // 只处理 .jsonl 文件
+          if (!filename.endsWith('.jsonl')) return;
+
+          const fileMatch = parseSessionFilePath(filename);
+          if (fileMatch === null) return;
+
+          // 构建防抖 key
+          const debounceKey =
+            fileMatch.type === 'agent'
+              ? `${fileMatch.projectId}/agent-${fileMatch.agentSessionId}`
+              : `${fileMatch.projectId}/${fileMatch.sessionId}`;
+
+          this.handleFileChange(debounceKey, fileMatch);
         }
-      })
-      .on('error', (error: Error) => {
-        console.error('[FileWatcher] Error:', error);
-        this.emit('error', error);
-      })
-      .on('ready', () => {
-        console.log('[FileWatcher] Ready - watching:');
-        console.log('  - Sessions:', this.historyFilePath);
-        console.log('  - Projects:', this.projectsDir);
-        console.log('  - Teams:', this.teamsDir);
-        this.emit('ready');
-      });
+      );
+
+      this.isWatching = true;
+      console.log('[FileWatcher] Started successfully');
+    } catch (error) {
+      console.error('[FileWatcher] Failed to start:', error);
+      throw error;
+    }
   }
 
+  /**
+   * 处理文件变化（带防抖）
+   */
+  private handleFileChange(
+    debounceKey: string,
+    fileMatch: NonNullable<ReturnType<typeof parseSessionFilePath>>
+  ): void {
+    // 清除现有计时器
+    const existingTimer = this.debounceTimers.get(debounceKey);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+    }
+
+    // 设置新计时器
+    const newTimer = setTimeout(() => {
+      this.emitEvent(fileMatch);
+      this.debounceTimers.delete(debounceKey);
+    }, this.DEBOUNCE_MS);
+
+    this.debounceTimers.set(debounceKey, newTimer);
+  }
+
+  /**
+   * 发射事件
+   */
+  private emitEvent(
+    fileMatch: NonNullable<ReturnType<typeof parseSessionFilePath>>
+  ): void {
+    if (fileMatch.type === 'agent') {
+      eventBus.emit('agentSessionChanged', {
+        projectId: fileMatch.projectId,
+        agentSessionId: fileMatch.agentSessionId,
+      });
+    } else {
+      eventBus.emit('sessionChanged', {
+        projectId: fileMatch.projectId,
+        sessionId: fileMatch.sessionId,
+      });
+
+      eventBus.emit('sessionListChanged', {
+        projectId: fileMatch.projectId,
+      });
+    }
+  }
+
+  /**
+   * 停止文件监视
+   */
   stop(): void {
+    if (!this.isWatching) {
+      return;
+    }
+
+    // 清除所有防抖计时器
+    for (const [, timer] of this.debounceTimers) {
+      clearTimeout(timer);
+    }
+    this.debounceTimers.clear();
+
+    // 关闭 watcher
     if (this.watcher) {
       this.watcher.close();
       this.watcher = null;
-      console.log('[FileWatcher] Stopped');
     }
+
+    this.isWatching = false;
+    console.log('[FileWatcher] Stopped');
   }
 
-  getWatcher(): chokidar.FSWatcher | null {
+  /**
+   * 获取 watcher 实例
+   */
+  getWatcher(): FSWatcher | null {
     return this.watcher;
   }
 
-  isWatching(): boolean {
-    return this.watcher !== null;
-  }
-
-  private getDataSource(filePath: string): DataSourceType {
-    // Normalize path for consistent comparison (handles Windows \ vs / separators)
-    const normalizedPath = path.normalize(filePath);
-
-    // Always log path comparison for debugging
-    console.log(`[FileWatcher] getDataSource: ${normalizedPath}`);
-    console.log(`[FileWatcher]   historyFilePath: ${this.historyFilePath}`);
-    console.log(`[FileWatcher]   projectsDir: ${this.projectsDir}`);
-    console.log(`[FileWatcher]   teamsDir: ${this.teamsDir}`);
-    console.log(`[FileWatcher]   startsWith projectsDir: ${normalizedPath.startsWith(this.projectsDir)}`);
-    console.log(`[FileWatcher]   startsWith teamsDir: ${normalizedPath.startsWith(this.teamsDir)}`);
-
-    if (normalizedPath === this.historyFilePath) {
-      return 'sessions';
-    }
-    if (normalizedPath.startsWith(this.projectsDir)) {
-      return 'projects';
-    }
-    if (normalizedPath.startsWith(this.teamsDir)) {
-      return 'teams';
-    }
-    return 'sessions'; // Default fallback
+  /**
+   * 检查是否正在监视
+   */
+  isWatchingActive(): boolean {
+    return this.isWatching;
   }
 }

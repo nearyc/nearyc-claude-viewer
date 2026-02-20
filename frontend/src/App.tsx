@@ -12,7 +12,6 @@ import {
 } from './components';
 import { useSessions, useSession, useProjects, useDashboardStats } from './hooks/useSessions';
 import { useTeams, useTeam } from './hooks/useTeams';
-import { useWebSocket } from './hooks/useWebSocket';
 import { useUrlState } from './hooks/useUrlState';
 import { useCommandPalette } from './hooks/useCommandPalette';
 import { SessionNamesProvider } from './hooks/useSessionNames';
@@ -20,6 +19,7 @@ import { TeamNamesProvider } from './hooks/useTeamNames';
 import { MobileProvider, useMobile } from './contexts/MobileContext';
 import { CommandPalette } from './components/CommandPalette';
 import { BatchActionBar } from './components/BatchActionBar';
+import { useServerEvents } from './lib/sse';
 import type { Session, Team, TeamWithInboxes, Message } from './types';
 
 function AppContent() {
@@ -53,12 +53,12 @@ function AppContent() {
   const { projects: fetchedProjects, refetch: refetchProjects } = useProjects();
   const { stats: fetchedStats, refetch: refetchStats } = useDashboardStats();
   const { teams: fetchedTeams, refetch: refetchTeams, loading: teamsLoading } = useTeams(5000); // 5s polling for team/member changes
-  const { session: selectedSession, setSession: setSelectedSession } = useSession(
-    selectedSessionId,
-    0, // Disable polling - WebSocket handles real-time updates
-    true
-  );
+  const { session: selectedSession } = useSession(selectedSessionId, 0, true);
   const { team: fetchedTeamData } = useTeam(selectedTeamId, 5000); // 5s polling for real-time updates
+
+  // SSE connection state
+  const { connectionState } = useServerEvents();
+  const isConnected = connectionState === 'connected';
 
   // Update local state when data is fetched - 合并为一个 useEffect
   useEffect(() => {
@@ -69,170 +69,39 @@ function AppContent() {
     if (fetchedTeamData) setTeamData(fetchedTeamData);
   }, [fetchedSessions, fetchedProjects, fetchedStats, fetchedTeams, fetchedTeamData]);
 
-  // WebSocket callbacks
-  const handleSessionsInit = useCallback((newSessions: Session[]) => {
-    // Only use WebSocket init data if HTTP data hasn't loaded yet
-    setSessions((prev) => (prev.length === 0 ? newSessions : prev));
-  }, []);
-
-  const handleSessionsUpdated = useCallback((newSessions: Session[]) => {
-    setSessions(newSessions);
-  }, []);
-
-  const handleSessionData = useCallback(
-    (updatedSession: Session) => {
-      // Merge with existing session data to preserve full conversation
-      setSelectedSession((prev) => {
-        if (!prev || prev.sessionId !== updatedSession.sessionId) return prev;
-
-        // Merge messages and deduplicate by uuid
-        const existingMessages = prev.messages || [];
-        const newMessages = updatedSession.messages || [];
-        const messageMap = new Map(existingMessages.map(m => [m.uuid, m]));
-
-        // Add/update with new messages
-        newMessages.forEach(msg => {
-          messageMap.set(msg.uuid, msg);
-        });
-
-        const mergedMessages = Array.from(messageMap.values());
-        // Sort by timestamp to maintain order
-        mergedMessages.sort((a, b) => a.timestamp - b.timestamp);
-
-        return { ...prev, ...updatedSession, messages: mergedMessages };
-      });
-
-      // Update sessions list (metadata only, preserve existing messages)
-      setSessions((prev) =>
-        prev.map((s) =>
-          s.sessionId === updatedSession.sessionId ? { ...s, ...updatedSession, messages: s.messages } : s
-        )
-      );
-    },
-    [setSelectedSession]
-  );
-
-  const handleSessionUpdated = useCallback((updatedSession: Session) => {
-    // Update sessions list (metadata only, preserve existing messages)
-    setSessions((prev) =>
-      prev.map((s) =>
-        s.sessionId === updatedSession.sessionId ? { ...s, ...updatedSession, messages: s.messages } : s
-      )
-    );
-
-    // Also update selected session if it's the same one
-    // Merge messages and deduplicate by uuid to avoid React key errors
-    setSelectedSession((prev) => {
-      if (!prev || prev.sessionId !== updatedSession.sessionId) return prev;
-
-      // If updatedSession has messages, merge and deduplicate
-      if (updatedSession.messages && updatedSession.messages.length > 0) {
-        const existingMessages = prev.messages || [];
-        const newMessages = updatedSession.messages;
-        const messageMap = new Map(existingMessages.map((m) => [m.uuid, m]));
-
-        // Add/update with new messages
-        newMessages.forEach((msg) => {
-          messageMap.set(msg.uuid, msg);
-        });
-
-        const mergedMessages = Array.from(messageMap.values());
-        // Sort by timestamp to maintain order
-        mergedMessages.sort((a, b) => a.timestamp - b.timestamp);
-
-        return { ...prev, ...updatedSession, messages: mergedMessages };
+  // Listen to SSE events and refresh data
+  useEffect(() => {
+    const handleSessionChanged = (event: CustomEvent) => {
+      console.log('[App] SSE sessionChanged:', event.detail);
+      // Refresh current session if it matches
+      if (event.detail.sessionId === selectedSessionId) {
+        refetchSessions();
       }
+    };
 
-      return { ...prev, ...updatedSession };
-    });
-  }, [setSelectedSession]);
+    const handleSessionListChanged = (event: CustomEvent) => {
+      console.log('[App] SSE sessionListChanged:', event.detail);
+      // Refresh sessions list
+      refetchSessions();
+      refetchStats();
+    };
 
-  const handleProjectsInit = useCallback((newProjects: any[]) => {
-    // Only use WebSocket init data if HTTP data hasn't loaded yet
-    setProjects((prev) => (prev.length === 0 ? newProjects : prev));
-  }, []);
+    const handleAgentSessionChanged = (event: CustomEvent) => {
+      console.log('[App] SSE agentSessionChanged:', event.detail);
+      // Refresh teams data
+      refetchTeams();
+    };
 
-  const handleProjectsUpdated = useCallback((newProjects: any[]) => {
-    setProjects(newProjects);
-  }, []);
+    window.addEventListener('sse:sessionChanged', handleSessionChanged as EventListener);
+    window.addEventListener('sse:sessionListChanged', handleSessionListChanged as EventListener);
+    window.addEventListener('sse:agentSessionChanged', handleAgentSessionChanged as EventListener);
 
-  const handleStatsUpdated = useCallback((newStats: any) => {
-    setStats(newStats);
-  }, []);
-
-  const handleTeamsInit = useCallback((newTeams: Team[]) => {
-    setTeams(newTeams);
-  }, []);
-
-  const handleTeamsUpdated = useCallback((newTeams: Team[]) => {
-    setTeams(newTeams);
-  }, []);
-
-  const handleTeamData = useCallback((data: TeamWithInboxes) => {
-    setTeamData(data);
-  }, []);
-
-  const handleTeamUpdated = useCallback((updatedTeam: Team) => {
-    setTeams((prev) =>
-      prev.map((t) => (t.id === updatedTeam.id ? { ...t, ...updatedTeam } : t))
-    );
-  }, []);
-
-  // Handle real-time message updates from WebSocket
-  const handleMessagesUpdated = useCallback((data: {
-    teamId: string;
-    memberId: string;
-    messages: Message[];
-  }) => {
-    setTeamData((prev) => {
-      if (!prev || prev.id !== data.teamId) return prev;
-      return {
-        ...prev,
-        inboxes: prev.inboxes.map((inbox) =>
-          inbox.memberName === data.memberId
-            ? { ...inbox, messages: data.messages }
-            : inbox
-        ),
-      };
-    });
-  }, []);
-
-  // WebSocket connection
-  const { connected, subscribeToSession, unsubscribeFromSession, subscribeToTeam, unsubscribeFromTeam } =
-    useWebSocket({
-      onSessionsInit: handleSessionsInit,
-      onSessionsUpdated: handleSessionsUpdated,
-      onSessionData: handleSessionData,
-      onSessionUpdated: handleSessionUpdated,
-      onProjectsInit: handleProjectsInit,
-      onProjectsUpdated: handleProjectsUpdated,
-      onStatsUpdated: handleStatsUpdated,
-      onTeamsInit: handleTeamsInit,
-      onTeamsUpdated: handleTeamsUpdated,
-      onTeamData: handleTeamData,
-      onTeamUpdated: handleTeamUpdated,
-      onMessagesUpdated: handleMessagesUpdated,
-    });
-
-  // Subscribe to session when selected
-  useEffect(() => {
-    if (selectedSessionId) {
-      subscribeToSession(selectedSessionId);
-      return () => {
-        unsubscribeFromSession(selectedSessionId);
-      };
-    }
-  }, [selectedSessionId, subscribeToSession, unsubscribeFromSession]);
-
-  // Subscribe to team when selected
-  useEffect(() => {
-    if (selectedTeamId) {
-      subscribeToTeam(selectedTeamId);
-      return () => {
-        unsubscribeFromTeam(selectedTeamId);
-      };
-    }
-  }, [selectedTeamId, subscribeToTeam, unsubscribeFromTeam]);
+    return () => {
+      window.removeEventListener('sse:sessionChanged', handleSessionChanged as EventListener);
+      window.removeEventListener('sse:sessionListChanged', handleSessionListChanged as EventListener);
+      window.removeEventListener('sse:agentSessionChanged', handleAgentSessionChanged as EventListener);
+    };
+  }, [selectedSessionId, refetchSessions, refetchStats, refetchTeams]);
 
   // Handlers
   const handleSelectSession = useCallback((session: Session) => {
@@ -312,7 +181,7 @@ function AppContent() {
     if (deletedSessionId && selectedSessionId === deletedSessionId) {
       navigateTo({ sessionId: null });
     }
-    // WebSocket will automatically refresh the sessions list
+    // SSE will automatically refresh the sessions list via cache invalidation
   }, [selectedSessionId, navigateTo]);
 
   // Handle team deletion - clear selection if the deleted team was selected
@@ -321,7 +190,7 @@ function AppContent() {
       navigateTo({ teamId: null });
       setSelectedMemberId(null);
     }
-    // WebSocket will automatically refresh the teams list
+    // SSE will automatically refresh the teams list via cache invalidation
   }, [selectedTeamId, navigateTo]);
 
   // Batch operations
@@ -431,7 +300,7 @@ function AppContent() {
       onViewChange={handleViewChange}
       stats={stats}
       projects={projects}
-      isConnected={connected}
+      isConnected={isConnected}
       selectedProject={decodedProjectPath}
       onSelectProject={handleSelectProject}
     />
@@ -631,7 +500,7 @@ function AppContent() {
               onViewChange={handleViewChange}
               stats={stats}
               projects={projects}
-              isConnected={connected}
+              isConnected={isConnected}
               selectedProject={decodedProjectPath}
               onSelectProject={handleSelectProject}
             />

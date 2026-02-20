@@ -1,5 +1,4 @@
 import { Router, type Response } from 'express';
-import type { Server as SocketIOServer } from 'socket.io';
 import type { SessionsService } from '../services/sessionsService';
 import type { ApiResponse, Session } from '../types';
 
@@ -24,11 +23,10 @@ function sendError(res: Response, status: number, message: string): void {
 
 interface SessionsRouterOptions {
   sessionsService: SessionsService;
-  io?: SocketIOServer;
 }
 
 export function createSessionsRouter(options: SessionsRouterOptions): Router {
-  const { sessionsService, io } = options;
+  const { sessionsService } = options;
   const router = Router();
 
   // GET /api/sessions - Get all sessions
@@ -126,14 +124,7 @@ export function createSessionsRouter(options: SessionsRouterOptions): Router {
       if (success) {
         // Clear cache and reload to ensure fresh data
         await sessionsService.afterDelete();
-        // Broadcast update via WebSocket immediately
-        if (io) {
-          const sessions = await sessionsService.getSessions();
-          const projects = await sessionsService.getProjects();
-          io.emit('sessions:updated', { sessions });
-          io.emit('projects:updated', { projects });
-          console.log('[API] Broadcasted sessions:updated after deletion');
-        }
+        // SSE clients will receive updates via file watcher events
         sendSuccess(res, { message: 'Session deleted successfully' });
       } else {
         sendError(res, 500, 'Failed to delete session');

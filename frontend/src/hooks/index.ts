@@ -7,7 +7,6 @@ export { useUrlState } from './useUrlState';
 export { useCommandPalette } from './useCommandPalette';
 export { useSavedFilters } from './useSavedFilters';
 export { useSessionTags } from './useSessionTags';
-export { useWebSocket } from './useWebSocket';
 export { useTranslation } from './useTranslation';
 export {
   useMediaQuery,

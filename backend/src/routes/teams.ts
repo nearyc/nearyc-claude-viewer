@@ -1,5 +1,4 @@
 import { Router, type Response } from 'express';
-import type { Server as SocketIOServer } from 'socket.io';
 import type { TeamsService } from '../services/TeamsService';
 import type { ApiResponse, Team, TeamWithInboxes, Message, TeamStats } from '../types';
 
@@ -24,11 +23,10 @@ function sendError(res: Response, status: number, message: string): void {
 
 interface TeamsRouterOptions {
   teamsService: TeamsService;
-  io?: SocketIOServer;
 }
 
 export function createTeamsRouter(options: TeamsRouterOptions): Router {
-  const { teamsService, io } = options;
+  const { teamsService } = options;
   const router = Router();
 
   // GET /api/teams - Get all teams
@@ -126,12 +124,7 @@ export function createTeamsRouter(options: TeamsRouterOptions): Router {
       if (success) {
         // Clear cache and reload to ensure fresh data
         await teamsService.afterDelete();
-        // Broadcast update via WebSocket immediately
-        if (io) {
-          const teams = await teamsService.getTeams();
-          io.emit('teams:updated', { teams });
-          console.log('[API] Broadcasted teams:updated after deletion');
-        }
+        // SSE clients will receive updates via file watcher events
         sendSuccess(res, { message: 'Team deleted successfully' });
       } else {
         sendError(res, 500, 'Failed to delete team');
