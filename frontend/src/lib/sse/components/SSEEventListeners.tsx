@@ -30,6 +30,8 @@ export function SSEEventListeners(): null {
   const { addEventListener, removeEventListener } = useServerEvents();
 
   useEffect(() => {
+    console.log('[SSEEventListeners] useEffect running');
+
     // sessionChanged 事件处理 - 单个会话更新
     const handleSessionChanged = (event: { projectId: string; sessionId: string }) => {
       console.log('[SSE] Session changed:', event.sessionId);
@@ -55,6 +57,7 @@ export function SSEEventListeners(): null {
     };
 
     // 注册事件监听器
+    console.log('[SSEEventListeners] Registering event listeners...');
     addEventListener('sessionChanged', handleSessionChanged);
     addEventListener('sessionListChanged', handleSessionListChanged);
     addEventListener('agentSessionChanged', handleAgentSessionChanged);
@@ -62,6 +65,7 @@ export function SSEEventListeners(): null {
 
     // 清理函数
     return () => {
+      console.log('[SSEEventListeners] Cleaning up event listeners...');
       removeEventListener('sessionChanged', handleSessionChanged);
       removeEventListener('sessionListChanged', handleSessionListChanged);
       removeEventListener('agentSessionChanged', handleAgentSessionChanged);

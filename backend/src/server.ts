@@ -230,6 +230,12 @@ export function createServerInstance(): ServerInstance {
   eventBus.on('sessionChanged', async (event) => {
     console.log('[EventBus] sessionChanged:', event.projectId, event.sessionId);
 
+    // Broadcast to SSE clients (always, even if no clients connected)
+    sseController.broadcast('sessionChanged', {
+      projectId: event.projectId,
+      sessionId: event.sessionId,
+    });
+
     // Clear cache and get updated session
     sessionsService.clearCache();
     const updatedSession = await sessionsService.getSessionWithConversation(event.sessionId);
@@ -246,10 +252,21 @@ export function createServerInstance(): ServerInstance {
 
   eventBus.on('sessionListChanged', async (event) => {
     console.log('[EventBus] sessionListChanged:', event.projectId);
+
+    // Broadcast to SSE clients
+    sseController.broadcast('sessionListChanged', {
+      projectId: event.projectId,
+    });
   });
 
   eventBus.on('agentSessionChanged', async (event) => {
     console.log('[EventBus] agentSessionChanged:', event.projectId, event.agentSessionId);
+
+    // Broadcast to SSE clients
+    sseController.broadcast('agentSessionChanged', {
+      projectId: event.projectId,
+      agentSessionId: event.agentSessionId,
+    });
   });
 
   // Start file watcher

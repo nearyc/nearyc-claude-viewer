@@ -53,7 +53,7 @@ function AppContent() {
   const { projects: fetchedProjects, refetch: refetchProjects } = useProjects();
   const { stats: fetchedStats, refetch: refetchStats } = useDashboardStats();
   const { teams: fetchedTeams, refetch: refetchTeams, loading: teamsLoading } = useTeams(5000); // 5s polling for team/member changes
-  const { session: selectedSession } = useSession(selectedSessionId, 0, true);
+  const { session: selectedSession, refetch: refetchSelectedSession } = useSession(selectedSessionId, 0, true);
   const { team: fetchedTeamData } = useTeam(selectedTeamId, 5000); // 5s polling for real-time updates
 
   // SSE connection state
@@ -73,9 +73,15 @@ function AppContent() {
   useEffect(() => {
     const handleSessionChanged = (event: CustomEvent) => {
       console.log('[App] SSE sessionChanged:', event.detail);
-      // Refresh current session if it matches
-      if (event.detail.sessionId === selectedSessionId) {
-        refetchSessions();
+      const { sessionId, projectId } = event.detail;
+
+      // Refresh sessions list for all session changes
+      refetchSessions();
+
+      // If the changed session is currently selected, also refresh its details
+      if (sessionId === selectedSessionId) {
+        console.log('[App] Refreshing selected session details:', sessionId);
+        refetchSelectedSession();
       }
     };
 
@@ -101,7 +107,7 @@ function AppContent() {
       window.removeEventListener('sse:sessionListChanged', handleSessionListChanged as EventListener);
       window.removeEventListener('sse:agentSessionChanged', handleAgentSessionChanged as EventListener);
     };
-  }, [selectedSessionId, refetchSessions, refetchStats, refetchTeams]);
+  }, [selectedSessionId, refetchSessions, refetchStats, refetchTeams, refetchSelectedSession]);
 
   // Handlers
   const handleSelectSession = useCallback((session: Session) => {

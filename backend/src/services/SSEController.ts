@@ -208,10 +208,10 @@ class SSEController {
       timestamp: new Date().toISOString(),
     });
 
-    // 注册事件监听器（如果还没有注册）
-    if (!this.eventListeners) {
-      this.registerEventListeners();
-    }
+    // Note: Event listeners are now registered in server.ts
+    // to ensure events are always broadcast even if no clients are connected.
+    // The registerEventListeners() method is kept for potential future use
+    // but is not called here to avoid duplicate broadcasts.
 
     // 启动心跳
     this.startHeartbeat();
@@ -261,9 +261,18 @@ class SSEController {
     const timestamp = new Date().toISOString();
     const fullData = { ...data, timestamp } as SSEEventDeclaration[EventName];
 
+    const clientCount = this.clients.size;
+    console.log(`[SSEController] Broadcasting '${eventName}' to ${clientCount} client(s):`, data);
+
+    if (clientCount === 0) {
+      console.log(`[SSEController] No clients connected, event '${eventName}' not sent`);
+      return;
+    }
+
     for (const client of this.clients.values()) {
       try {
         writeSSE(client, eventName, fullData);
+        console.log(`[SSEController] Sent '${eventName}' to client ${client.id}`);
       } catch (error) {
         console.error(`[SSEController] Failed to send to client ${client.id}:`, error);
         this.removeClient(client.id);

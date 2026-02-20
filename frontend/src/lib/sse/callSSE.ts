@@ -76,6 +76,9 @@ export function callSSE(options: CallSSEOptions = {}): SSEClient {
   // Map to store event listeners by event name
   const listeners = new Map<string, ListenerSet>();
 
+  // Set to store event types that need to be registered once EventSource is ready
+  const pendingEventTypes = new Set<string>();
+
   // Connection state
   let eventSource: EventSource | null = null;
   let reconnectAttempt = 0;
@@ -111,7 +114,9 @@ export function callSSE(options: CallSSEOptions = {}): SSEClient {
    */
   function notifyListeners(eventName: string, data: unknown): void {
     const eventListeners = listeners.get(eventName);
+    console.log(`[SSE Client] notifyListeners called for '${eventName}', listeners exist: ${!!eventListeners}, count: ${eventListeners?.size || 0}`);
     if (eventListeners) {
+      console.log(`[SSE Client] Notifying ${eventListeners.size} listener(s) for event '${eventName}':`, data);
       eventListeners.forEach((listener) => {
         try {
           listener(data);
@@ -132,7 +137,15 @@ export function callSSE(options: CallSSEOptions = {}): SSEClient {
 
     // Handle connection open
     eventSource.onopen = () => {
+      console.log('[SSE Client] EventSource opened, processing pending event types:', pendingEventTypes.size);
       reconnectAttempt = 0;
+
+      // Register any pending event types that were added before connection was ready
+      pendingEventTypes.forEach((eventName) => {
+        registerEventSourceListener(eventName);
+      });
+      pendingEventTypes.clear();
+
       onOpen?.();
     };
 
@@ -204,14 +217,30 @@ export function callSSE(options: CallSSEOptions = {}): SSEClient {
    * @param eventName - Name of the event to listen for
    */
   function registerEventSourceListener(eventName: string): void {
-    if (!eventSource || eventName === 'message') {
+    if (eventName === 'message') {
       return;
     }
 
-    eventSource.addEventListener(eventName, (event: MessageEvent) => {
-      const data = parseEventData(event.data);
-      notifyListeners(eventName, data);
-    });
+    // If EventSource is not ready yet, queue the event type for later registration
+    if (!eventSource) {
+      console.log(`[SSE Client] Queueing event type: ${eventName}`);
+      pendingEventTypes.add(eventName);
+      return;
+    }
+
+    // If EventSource is already connected, register immediately
+    // Otherwise queue it to be processed when connection opens
+    if (eventSource.readyState === EventSource.OPEN) {
+      console.log(`[SSE Client] EventSource already open, registering event type: ${eventName}`);
+      eventSource.addEventListener(eventName, (event: MessageEvent) => {
+        console.log(`[SSE Client] Received event: ${eventName}`, event.data);
+        const data = parseEventData(event.data);
+        notifyListeners(eventName, data);
+      });
+    } else {
+      console.log(`[SSE Client] EventSource not open yet (readyState: ${eventSource.readyState}), queueing event type: ${eventName}`);
+      pendingEventTypes.add(eventName);
+    }
   }
 
   // Initialize connection
@@ -224,6 +253,8 @@ export function callSSE(options: CallSSEOptions = {}): SSEClient {
         return;
       }
 
+      console.log(`[SSE Client] addEventListener called for: ${eventName}, eventSource exists: ${!!eventSource}`);
+
       let eventListeners = listeners.get(eventName);
       if (!eventListeners) {
         eventListeners = new Set();
@@ -234,6 +265,7 @@ export function callSSE(options: CallSSEOptions = {}): SSEClient {
       }
 
       eventListeners.add(listener as (event: unknown) => void);
+      console.log(`[SSE Client] Listener added for: ${eventName}, total listeners: ${eventListeners.size}`);
     },
 
     removeEventListener<T>(eventName: string, listener: (event: T) => void): void {

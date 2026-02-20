@@ -12,7 +12,8 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:13927',
         changeOrigin: true,
-        secure: false
+        secure: false,
+        ws: true, // Enable WebSocket/SSE proxying
       }
     }
   }
