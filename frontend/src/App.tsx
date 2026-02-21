@@ -56,24 +56,24 @@ function AppContent() {
   const shouldPoll = connectionState !== 'connected';
   const [isPageVisible, setIsPageVisible] = useState(!document.hidden);
 
-  // Polling interval for sessions/teams list: fixed 30s when page visible
-  // 30s to avoid request pile-up since /api/sessions can be very slow (scans all files)
-  const listPollingInterval = useMemo(() => {
-    if (!isPageVisible) return 0;
-    return 30000; // Fixed 30s interval for sessions/teams list
-  }, [isPageVisible]);
+  // Polling intervals: sessions disabled (manual refresh), teams 5s (lightweight)
+  // Sessions list scanning is expensive - use manual refresh to reduce server load
+  const sessionsPollingInterval = 0; // Disabled - manual refresh only
 
-  // Polling interval for selected session: 5s when not connected, 0 when connected
-  const sessionPollingInterval = useMemo(() => {
+  // Teams list is lightweight - can poll every 5s
+  const teamsPollingInterval = useMemo(() => {
     if (!isPageVisible) return 0;
     return shouldPoll ? 5000 : 0;
   }, [shouldPoll, isPageVisible]);
 
+  // Polling interval for selected session: 5s when not connected, 0 when connected
+  const sessionPollingInterval = teamsPollingInterval;
+
   // Fetch data with dynamic polling based on SSE connection state
-  const { sessions: fetchedSessions, refetch: refetchSessions, loading: sessionsLoading } = useSessions(listPollingInterval);
+  const { sessions: fetchedSessions, refetch: refetchSessions, loading: sessionsLoading } = useSessions(sessionsPollingInterval);
   const { projects: fetchedProjects, refetch: refetchProjects } = useProjects();
   const { stats: fetchedStats, refetch: refetchStats } = useDashboardStats();
-  const { teams: fetchedTeams, refetch: refetchTeams, loading: teamsLoading } = useTeams(listPollingInterval);
+  const { teams: fetchedTeams, refetch: refetchTeams, loading: teamsLoading } = useTeams(teamsPollingInterval);
   const {
     session: selectedSession,
     refetch: refetchSelectedSession,
@@ -91,28 +91,23 @@ function AppContent() {
     if (fetchedTeamData) setTeamData(fetchedTeamData);
   }, [fetchedSessions, fetchedProjects, fetchedStats, fetchedTeams, fetchedTeamData]);
 
-  // Page visibility change listener - pause/resume polling
+  // Page visibility change listener - update state but don't auto-refresh
+  // Auto-refresh is disabled to reduce server load - users can refresh manually
   useEffect(() => {
     const handleVisibilityChange = () => {
       const isVisible = !document.hidden;
       setIsPageVisible(isVisible);
-
-      if (isVisible) {
-        // Page became visible - refresh data immediately
-        refetchSessions();
-        refetchTeams();
-        refetchStats();
-      }
+      // Note: No auto-refresh on visibility change - manual refresh only
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [refetchSessions, refetchTeams, refetchStats]);
+  }, []);
 
   // SSE events - refresh selected session in real-time
-  // Sessions/teams list uses both SSE + 5s polling for data consistency
+  // Note: Sessions/teams list is manual refresh only (no polling) to reduce server load
   useEffect(() => {
     const handleSessionChanged = (event: CustomEvent) => {
       console.log('[App] SSE sessionChanged:', event.detail);
