@@ -76,6 +76,8 @@ export const zhCN: TranslationSchema = {
     noInputs: '此会话暂无输入',
     empty: '(空)',
     selectSession: '选择一个会话查看详情',
+    notFound: '会话不存在',
+    mayBeDeleted: '该会话可能已被删除',
   },
   team: {
     title: 'Agent 团队',

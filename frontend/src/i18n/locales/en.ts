@@ -76,6 +76,8 @@ export const en: TranslationSchema = {
     noInputs: 'No inputs in this session',
     empty: '(empty)',
     selectSession: 'Select a session to view details',
+    notFound: 'Session not found',
+    mayBeDeleted: 'This session may have been deleted',
   },
   team: {
     title: 'Agent Teams',

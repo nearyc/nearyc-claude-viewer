@@ -79,6 +79,7 @@ function AppContent() {
     refetch: refetchSelectedSession,
     hasMoreMessages,
     loadFullConversation,
+    error: sessionError,
   } = useSession(selectedSessionId, sessionPollingInterval, true);
   const { team: fetchedTeamData } = useTeam(selectedTeamId, sessionPollingInterval);
 
@@ -135,6 +136,31 @@ function AppContent() {
       window.removeEventListener('sse:agentSessionChanged', handleAgentSessionChanged as EventListener);
     };
   }, [selectedSessionId, refetchSelectedSession]);
+
+  // Handle session not found (404) - refresh sessions list to sync with backend
+  useEffect(() => {
+    const handleSessionNotFound = (event: CustomEvent) => {
+      const { sessionId } = event.detail;
+      console.log('[App] Session not found, refreshing sessions list:', sessionId);
+
+      // Refresh sessions list to remove deleted sessions
+      refetchSessions();
+      refetchStats();
+
+      // If the not-found session is currently selected, clear the selection
+      if (sessionId === selectedSessionId) {
+        console.log('[App] Clearing selected session due to 404:', sessionId);
+        // Optionally navigate back to sessions list
+        // navigateTo({ sessionId: null });
+      }
+    };
+
+    window.addEventListener('session:notFound', handleSessionNotFound as EventListener);
+
+    return () => {
+      window.removeEventListener('session:notFound', handleSessionNotFound as EventListener);
+    };
+  }, [selectedSessionId, refetchSessions, refetchStats]);
 
   // Handlers
   const handleSelectSession = useCallback((session: Session) => {
@@ -468,6 +494,7 @@ function AppContent() {
             session={selectedSession}
             hasMoreMessages={hasMoreMessages}
             onLoadFullConversation={loadFullConversation}
+            error={sessionError}
           />
         );
       case 'teams':

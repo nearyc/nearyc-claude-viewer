@@ -368,7 +368,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     ) : (
                       stats.recentSessions.map((session) => (
                         <SessionListItem
-                          key={session.id}
+                          key={session.sessionId}
                           session={session}
                           onClick={() => onViewSession(session.sessionId)}
                         />
@@ -449,7 +449,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 ) : (
                   stats.recentSessions.map((session) => (
                     <SessionListItem
-                      key={session.id}
+                      key={session.sessionId}
                       session={session}
                       onClick={() => onViewSession(session.sessionId)}
                     />

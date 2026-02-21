@@ -119,34 +119,40 @@ export function useSession(
 
   // AbortController for canceling in-flight requests
   const abortControllerRef = useRef<AbortController | null>(null);
-  // Request ID to prevent race conditions
-  const requestIdRef = useRef<number>(0);
 
-  const fetchSession = useCallback(
-    async (silent = false, loadFull = false) => {
-      if (!sessionId) return;
+  // Load full conversation (all messages)
+  const loadFullConversation = useCallback(async () => {
+    isFullConversationLoadedRef.current = true;
+    // Trigger a refetch with full conversation
+    const event = new CustomEvent('session:refetch', { detail: { loadFull: true } });
+    window.dispatchEvent(event);
+  }, []);
 
-      // Only cancel previous request if it's a user-initiated action (not silent/polling)
-      if (!silent && abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
+  // Main effect to fetch session data
+  useEffect(() => {
+    if (!sessionId) {
+      setSession(null);
+      return;
+    }
 
-      // Create new AbortController for this request
-      const abortController = new AbortController();
-      abortControllerRef.current = abortController;
+    // Cancel any existing request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
 
-      // Increment request ID for this request
-      const currentRequestId = ++requestIdRef.current;
+    // Create new AbortController for this request
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
 
-      if (!silent) {
-        setLoading(true);
-      }
-      setError(null);
+    // Reset full conversation flag when session changes
+    isFullConversationLoadedRef.current = false;
+    setError(null);
+    setLoading(true);
+
+    const fetchData = async (loadFull = false) => {
       try {
         let url: string;
         if (fullConversation) {
-          // If user has already loaded full conversation, or loadFull is explicitly requested,
-          // fetch all messages without limit
           const shouldLoadFull = loadFull || isFullConversationLoadedRef.current;
           const limit = shouldLoadFull ? 0 : initialMessageLimit;
           url =
@@ -160,8 +166,7 @@ export function useSession(
           signal: abortController.signal,
         });
 
-        // Check if this is still the latest request (prevent race condition)
-        if (currentRequestId !== requestIdRef.current) {
+        if (abortController.signal.aborted) {
           return;
         }
 
@@ -169,75 +174,81 @@ export function useSession(
           setSession(response.data.data);
           setHasMoreMessages(response.data.data.hasMoreMessages || false);
         } else {
-          // Clear session on error to avoid showing stale data from previous session
           setSession(null);
           setHasMoreMessages(false);
           setError(response.data.error || 'Failed to fetch session');
         }
       } catch (err) {
-        // Ignore canceled request errors
-        if (axios.isCancel(err)) {
+        if (axios.isCancel(err) || abortController.signal.aborted) {
           return;
         }
 
-        // Check if this is still the latest request (prevent race condition)
-        if (currentRequestId !== requestIdRef.current) {
+        // Handle 404 error specifically - session not found
+        if (axios.isAxiosError(err) && err.response?.status === 404) {
+          setSession(null);
+          setHasMoreMessages(false);
+          setError('SESSION_NOT_FOUND');
+
+          // Dispatch event to notify parent components to refresh sessions list
+          // This helps sync the frontend state with backend when sessions are deleted
+          window.dispatchEvent(new CustomEvent('session:notFound', {
+            detail: { sessionId }
+          }));
           return;
         }
 
-        // Clear session on error to avoid showing stale data from previous session
         setSession(null);
         setHasMoreMessages(false);
         setError(err instanceof Error ? err.message : 'Failed to fetch session');
       } finally {
-        // Check if this is still the latest request before updating loading state
-        if (currentRequestId === requestIdRef.current && !silent) {
+        if (!abortController.signal.aborted) {
           setLoading(false);
         }
       }
-    },
-    [sessionId, fullConversation, initialMessageLimit]
-  );
-
-  // Load full conversation (all messages)
-  const loadFullConversation = useCallback(async () => {
-    isFullConversationLoadedRef.current = true;
-    await fetchSession(false, true);
-  }, [fetchSession]);
-
-  useEffect(() => {
-    // Reset full conversation flag and session state when session changes
-    isFullConversationLoadedRef.current = false;
-    setSession(null); // Clear old session immediately to avoid showing stale data
-    setError(null);
-    fetchSession(false);
-
-    // Cleanup: cancel in-flight request and increment request ID
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-      requestIdRef.current++;
     };
-  }, [fetchSession]);
 
-  // Optional polling as fallback when WebSocket is not working
+    fetchData(false);
+
+    // Listen for refetch events
+    const handleRefetch = (e: CustomEvent) => {
+      if (e.detail?.loadFull) {
+        fetchData(true);
+      } else {
+        fetchData(false);
+      }
+    };
+    window.addEventListener('session:refetch', handleRefetch as EventListener);
+
+    // Cleanup
+    return () => {
+      abortController.abort();
+      window.removeEventListener('session:refetch', handleRefetch as EventListener);
+    };
+  }, [sessionId, fullConversation, initialMessageLimit]);
+
+  // Polling effect
   useEffect(() => {
     if (!sessionId || pollInterval <= 0) return;
 
     const intervalId = setInterval(() => {
-      fetchSession(true);
+      const event = new CustomEvent('session:refetch', { detail: { silent: true } });
+      window.dispatchEvent(event);
     }, pollInterval);
 
     return () => clearInterval(intervalId);
-  }, [sessionId, pollInterval, fetchSession]);
+  }, [sessionId, pollInterval]);
+
+  const refetch = useCallback(() => {
+    const event = new CustomEvent('session:refetch');
+    window.dispatchEvent(event);
+  }, []);
 
   return {
     session,
     loading,
     error,
     hasMoreMessages,
-    refetch: () => fetchSession(false),
+    refetch,
     setSession,
     loadFullConversation,
   };

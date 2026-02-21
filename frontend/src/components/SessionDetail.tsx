@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, useDeferredValue } from 'react';
-import { Star, Edit3, Check, X, ArrowLeft } from 'lucide-react';
+import { Star, Edit3, Check, X, ArrowLeft, MessageSquare } from 'lucide-react';
 import { useMobile } from '../contexts/MobileContext';
 import type { Session } from '../types';
 import { useSessionNames } from '../hooks/useSessionNames';
@@ -29,6 +29,7 @@ interface SessionDetailProps {
   isUpdating?: boolean;
   hasMoreMessages?: boolean;
   onLoadFullConversation?: () => void;
+  error?: string | null;
 }
 
 // Constants for message folding
@@ -39,6 +40,7 @@ export const SessionDetail: React.FC<SessionDetailProps> = ({
   isUpdating,
   hasMoreMessages,
   onLoadFullConversation,
+  error,
 }) => {
   // Hooks
   const { t } = useTranslation();
@@ -156,8 +158,32 @@ export const SessionDetail: React.FC<SessionDetailProps> = ({
     setSearchQueryInput('');
   }, [closeSearch]);
 
-  // Early return for empty state
+  // Early return for empty state or error state
   if (!session) {
+    if (error === 'SESSION_NOT_FOUND') {
+      return (
+        <div
+          className="flex flex-col h-full items-center justify-center px-4"
+          style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-muted)' }}
+        >
+          <div
+            className="w-16 h-16 rounded-full flex items-center justify-center mb-4 border"
+            style={{
+              backgroundColor: 'var(--bg-card)',
+              borderColor: 'var(--border-primary)',
+            }}
+          >
+            <MessageSquare className="w-7 h-7 opacity-40" />
+          </div>
+          <p className="text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>
+            {t('session.notFound')}
+          </p>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            {t('session.mayBeDeleted')}
+          </p>
+        </div>
+      );
+    }
     return <EmptyState />;
   }
 
