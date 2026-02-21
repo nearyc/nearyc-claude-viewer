@@ -169,6 +169,9 @@ export function useSession(
           setSession(response.data.data);
           setHasMoreMessages(response.data.data.hasMoreMessages || false);
         } else {
+          // Clear session on error to avoid showing stale data from previous session
+          setSession(null);
+          setHasMoreMessages(false);
           setError(response.data.error || 'Failed to fetch session');
         }
       } catch (err) {
@@ -182,6 +185,9 @@ export function useSession(
           return;
         }
 
+        // Clear session on error to avoid showing stale data from previous session
+        setSession(null);
+        setHasMoreMessages(false);
         setError(err instanceof Error ? err.message : 'Failed to fetch session');
       } finally {
         // Check if this is still the latest request before updating loading state
@@ -200,8 +206,10 @@ export function useSession(
   }, [fetchSession]);
 
   useEffect(() => {
-    // Reset full conversation flag when session changes
+    // Reset full conversation flag and session state when session changes
     isFullConversationLoadedRef.current = false;
+    setSession(null); // Clear old session immediately to avoid showing stale data
+    setError(null);
     fetchSession(false);
 
     // Cleanup: cancel in-flight request and increment request ID
