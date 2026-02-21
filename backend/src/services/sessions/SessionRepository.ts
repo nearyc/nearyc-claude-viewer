@@ -58,8 +58,8 @@ export class SessionRepository {
       // Load sessions from history file
       const { sessions, projects } = await this.sessionLoader.loadSessions();
 
-      // Scan projects directory to find sessions not in history.jsonl
-      await this.projectScanner.scanProjectsDirectory(sessions, projects);
+      // Scan projects directory to find sessions not in history.jsonl (incremental)
+      await this.projectScanner.scanProjectsDirectoryIncremental(sessions, projects);
 
       // Update caches
       this.cache.setSessions(sessions);

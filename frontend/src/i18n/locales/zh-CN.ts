@@ -68,6 +68,8 @@ export const zhCN: TranslationSchema = {
     messages: '消息',
     sessionDetails: '会话详情',
     partialDataNotice: '完整对话不可用。仅显示用户输入。',
+    loadFullConversation: '加载完整对话',
+    showingRecentMessages: '正在显示最近的消息，点击上方按钮加载完整对话',
     updating: '更新中...',
     receivingUpdates: '接收更新中...',
     conversation: '对话',

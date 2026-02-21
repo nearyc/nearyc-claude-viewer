@@ -164,7 +164,7 @@ export const SwipeableSessionItem: React.FC<SessionItemProps> = React.memo(({
 
         <div className="flex items-center justify-between text-xs">
           <span style={{ color: 'var(--text-muted)' }}>
-            {session.inputCount} {t('session.inputs')}
+            {session.messageCount} {t('session.messages')} ({session.inputCount} {t('session.inputs')})
           </span>
           <span style={{ color: 'var(--text-tertiary)' }}>
             {formatRelativeTime(session.updatedAt)}

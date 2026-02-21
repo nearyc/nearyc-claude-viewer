@@ -68,6 +68,8 @@ export const en: TranslationSchema = {
     messages: 'Messages',
     sessionDetails: 'Session Details',
     partialDataNotice: 'Full conversation not available. Only user inputs shown.',
+    loadFullConversation: 'Load Full Conversation',
+    showingRecentMessages: 'Showing recent messages. Click button above to load full conversation.',
     updating: 'Updating...',
     receivingUpdates: 'Receiving updates...',
     conversation: 'Conversation',

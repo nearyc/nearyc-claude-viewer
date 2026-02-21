@@ -70,11 +70,23 @@ export function createSessionsRouter(options: SessionsRouterOptions): Router {
   router.get('/:id', async (req, res) => {
     try {
       const { id } = req.params;
-      const { full } = req.query;
+      const { full, limit } = req.query;
 
-      const session = full === 'true'
-        ? await sessionsService.getSessionWithConversation(id)
-        : await sessionsService.getSessionById(id);
+      let session;
+
+      if (full === 'true') {
+        // Parse limit parameter (for pagination)
+        let limitNum = 0; // 0 means no limit (all messages)
+        if (limit && typeof limit === 'string') {
+          const parsed = parseInt(limit, 10);
+          if (!isNaN(parsed) && parsed > 0) {
+            limitNum = parsed;
+          }
+        }
+        session = await sessionsService.getSessionWithConversation(id, limitNum);
+      } else {
+        session = await sessionsService.getSessionById(id);
+      }
 
       if (!session) {
         sendError(res, 404, 'Session not found');

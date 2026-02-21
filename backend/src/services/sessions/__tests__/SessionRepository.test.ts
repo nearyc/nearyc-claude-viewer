@@ -48,7 +48,7 @@ describe('SessionRepository', () => {
 
     mockCache = new SessionCache();
     mockSessionLoader = new SessionLoader({ historyFilePath: mockHistoryFilePath }) as jest.Mocked<SessionLoader>;
-    mockProjectScanner = new ProjectScanner({ projectsDir: mockProjectsDir }) as jest.Mocked<ProjectScanner>;
+    mockProjectScanner = new ProjectScanner({ projectsDir: mockProjectsDir, cache: mockCache }) as jest.Mocked<ProjectScanner>;
     mockConversationLoader = new ConversationLoader({ projectsDir: mockProjectsDir }) as jest.Mocked<ConversationLoader>;
 
     repository = new SessionRepository({

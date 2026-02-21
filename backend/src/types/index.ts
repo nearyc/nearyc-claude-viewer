@@ -64,6 +64,7 @@ export interface Session {
   updatedAt: number;
   inputCount: number;
   messageCount: number;
+  hasMoreMessages?: boolean; // Indicates if there are more messages not loaded (for pagination)
 }
 
 // ============================================

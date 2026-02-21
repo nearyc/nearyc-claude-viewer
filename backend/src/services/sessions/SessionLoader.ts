@@ -75,6 +75,8 @@ export class SessionLoader {
 
           // Update session metadata
           session.inputCount = session.inputs.length;
+          // Each history entry represents one user input (messageCount = inputCount for history entries)
+          session.messageCount = session.inputCount;
           if (timestampMs < session.createdAt) {
             session.createdAt = timestampMs;
           }

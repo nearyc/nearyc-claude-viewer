@@ -73,6 +73,8 @@ export interface TranslationSchema extends Record<string, unknown> {
     noInputs: string;
     empty: string;
     selectSession: string;
+    loadFullConversation: string;
+    showingRecentMessages: string;
   };
   team: {
     title: string;

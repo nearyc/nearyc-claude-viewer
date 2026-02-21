@@ -36,7 +36,7 @@ export class SessionsService {
     // Initialize components
     this.cache = new SessionCache();
     this.sessionLoader = new SessionLoader({ historyFilePath: this.historyFilePath });
-    this.projectScanner = new ProjectScanner({ projectsDir: this.projectsDir });
+    this.projectScanner = new ProjectScanner({ projectsDir: this.projectsDir, cache: this.cache });
     this.conversationLoader = new ConversationLoader({ projectsDir: this.projectsDir });
     this.repository = new SessionRepository({
       historyFilePath: this.historyFilePath,
@@ -167,12 +167,14 @@ export class SessionsService {
   }
 
   // Get session with full conversation
-  async getSessionWithConversation(sessionId: string): Promise<Session | null> {
+  async getSessionWithConversation(sessionId: string, limit: number = 0): Promise<Session | null> {
     const session = await this.getSessionById(sessionId);
     if (!session) return null;
 
-    // Load full conversation
-    const messages = await this.loadFullConversation(sessionId, session.project);
+    // Load conversation (with optional limit for pagination)
+    const messages = limit > 0
+      ? await this.conversationLoader.loadConversationWithLimit(sessionId, session.project, limit)
+      : await this.loadFullConversation(sessionId, session.project);
 
     // Calculate updatedAt from the latest message timestamp
     let updatedAt = session.updatedAt;
@@ -187,6 +189,8 @@ export class SessionsService {
       messages,
       messageCount: messages.length,
       updatedAt,
+      // Add flag to indicate if this is a partial load
+      hasMoreMessages: limit > 0 && session.messageCount > messages.length,
     };
   }
 }

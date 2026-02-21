@@ -56,10 +56,11 @@ function AppContent() {
   const shouldPoll = connectionState !== 'connected';
   const [isPageVisible, setIsPageVisible] = useState(!document.hidden);
 
-  // Polling interval for sessions/teams list: fixed 5s when page visible
+  // Polling interval for sessions/teams list: fixed 30s when page visible
+  // 30s to avoid request pile-up since /api/sessions can be very slow (scans all files)
   const listPollingInterval = useMemo(() => {
     if (!isPageVisible) return 0;
-    return 5000; // Fixed 5s interval for sessions/teams list
+    return 30000; // Fixed 30s interval for sessions/teams list
   }, [isPageVisible]);
 
   // Polling interval for selected session: 5s when not connected, 0 when connected
@@ -73,7 +74,12 @@ function AppContent() {
   const { projects: fetchedProjects, refetch: refetchProjects } = useProjects();
   const { stats: fetchedStats, refetch: refetchStats } = useDashboardStats();
   const { teams: fetchedTeams, refetch: refetchTeams, loading: teamsLoading } = useTeams(listPollingInterval);
-  const { session: selectedSession, refetch: refetchSelectedSession } = useSession(selectedSessionId, sessionPollingInterval, true);
+  const {
+    session: selectedSession,
+    refetch: refetchSelectedSession,
+    hasMoreMessages,
+    loadFullConversation,
+  } = useSession(selectedSessionId, sessionPollingInterval, true);
   const { team: fetchedTeamData } = useTeam(selectedTeamId, sessionPollingInterval);
 
   // Update local state when data is fetched - 合并为一个 useEffect
@@ -462,7 +468,13 @@ function AppContent() {
         );
       case 'sessions':
       case 'projects':
-        return <SessionDetail session={selectedSession} />;
+        return (
+          <SessionDetail
+            session={selectedSession}
+            hasMoreMessages={hasMoreMessages}
+            onLoadFullConversation={loadFullConversation}
+          />
+        );
       case 'teams':
         // Desktop: null (rendered in middle panel)
         // Mobile: TeamDetail in right panel

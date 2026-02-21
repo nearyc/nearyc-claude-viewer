@@ -27,12 +27,19 @@ import {
 interface SessionDetailProps {
   session: Session | null;
   isUpdating?: boolean;
+  hasMoreMessages?: boolean;
+  onLoadFullConversation?: () => void;
 }
 
 // Constants for message folding
 const MESSAGE_MIN_LENGTH_TO_COLLAPSE = 500;
 
-export const SessionDetail: React.FC<SessionDetailProps> = ({ session, isUpdating }) => {
+export const SessionDetail: React.FC<SessionDetailProps> = ({
+  session,
+  isUpdating,
+  hasMoreMessages,
+  onLoadFullConversation,
+}) => {
   // Hooks
   const { t } = useTranslation();
   const { getSessionName, setSessionName, hasCustomName } = useSessionNames();
@@ -325,6 +332,34 @@ export const SessionDetail: React.FC<SessionDetailProps> = ({ session, isUpdatin
 
       {/* Conversation */}
       <div ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto">
+        {/* Load more messages button */}
+        {hasMoreMessages && onLoadFullConversation && (
+          <div
+            className="sticky top-0 z-10 px-4 py-3 border-b text-center"
+            style={{
+              borderColor: 'var(--border-primary)',
+              backgroundColor: 'var(--bg-secondary)',
+            }}
+          >
+            <button
+              onClick={onLoadFullConversation}
+              className="px-4 py-2 text-sm font-medium rounded-lg transition-colors"
+              style={{
+                backgroundColor: 'var(--accent-primary)',
+                color: 'white',
+              }}
+              disabled={isUpdating}
+            >
+              {isUpdating ? t('common.loading') : t('session.loadFullConversation')}
+            </button>
+            <p
+              className="text-xs mt-1"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              {t('session.showingRecentMessages')}
+            </p>
+          </div>
+        )}
         {hasFullConversation ? (
           <>
             <ConversationView

@@ -18,8 +18,9 @@ export function useSessions(pollInterval: number = DEFAULT_POLL_INTERVAL_MS) {
   const requestIdRef = useRef<number>(0);
 
   const fetchSessions = useCallback(async (forceRefresh = false, silent = false) => {
-    // Cancel previous request if exists
-    if (abortControllerRef.current) {
+    // Only cancel previous request if it's a user-initiated action (not silent/polling)
+    // This prevents polling from interrupting in-flight requests
+    if (!silent && abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
 
@@ -91,7 +92,9 @@ export function useSessions(pollInterval: number = DEFAULT_POLL_INTERVAL_MS) {
     if (pollInterval <= 0) return;
 
     const intervalId = setInterval(() => {
-      fetchSessions(true, true); // force refresh, silent mode
+      // Use cache (forceRefresh=false) for polling to avoid backend file scanning
+      // Only use forceRefresh=true for user-initiated actions
+      fetchSessions(false, true); // use cache, silent mode
     }, pollInterval);
 
     return () => clearInterval(intervalId);
@@ -100,74 +103,105 @@ export function useSessions(pollInterval: number = DEFAULT_POLL_INTERVAL_MS) {
   return { sessions, loading, error, refetch: () => fetchSessions(true), setSessions };
 }
 
-export function useSession(sessionId: string | null, pollInterval: number = 0, fullConversation: boolean = true) {
+export function useSession(
+  sessionId: string | null,
+  pollInterval: number = 0,
+  fullConversation: boolean = true,
+  initialMessageLimit: number = 100 // Load last 100 messages initially
+) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+
+  // Track if user has loaded full conversation - persists across updates
+  const isFullConversationLoadedRef = useRef(false);
 
   // AbortController for canceling in-flight requests
   const abortControllerRef = useRef<AbortController | null>(null);
   // Request ID to prevent race conditions
   const requestIdRef = useRef<number>(0);
 
-  const fetchSession = useCallback(async (silent = false) => {
-    if (!sessionId) return;
+  const fetchSession = useCallback(
+    async (silent = false, loadFull = false) => {
+      if (!sessionId) return;
 
-    // Cancel previous request if exists
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-
-    // Create new AbortController for this request
-    const abortController = new AbortController();
-    abortControllerRef.current = abortController;
-
-    // Increment request ID for this request
-    const currentRequestId = ++requestIdRef.current;
-
-    if (!silent) {
-      setLoading(true);
-    }
-    setError(null);
-    try {
-      const url = fullConversation
-        ? `${API_BASE}/sessions/${sessionId}?full=true`
-        : `${API_BASE}/sessions/${sessionId}`;
-      const response = await axios.get<ApiResponse<Session>>(url, {
-        signal: abortController.signal,
-      });
-
-      // Check if this is still the latest request (prevent race condition)
-      if (currentRequestId !== requestIdRef.current) {
-        return;
+      // Only cancel previous request if it's a user-initiated action (not silent/polling)
+      if (!silent && abortControllerRef.current) {
+        abortControllerRef.current.abort();
       }
 
-      if (response.data.success && response.data.data) {
-        setSession(response.data.data);
-      } else {
-        setError(response.data.error || 'Failed to fetch session');
-      }
-    } catch (err) {
-      // Ignore canceled request errors
-      if (axios.isCancel(err)) {
-        return;
-      }
+      // Create new AbortController for this request
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
 
-      // Check if this is still the latest request (prevent race condition)
-      if (currentRequestId !== requestIdRef.current) {
-        return;
-      }
+      // Increment request ID for this request
+      const currentRequestId = ++requestIdRef.current;
 
-      setError(err instanceof Error ? err.message : 'Failed to fetch session');
-    } finally {
-      // Check if this is still the latest request before updating loading state
-      if (currentRequestId === requestIdRef.current && !silent) {
-        setLoading(false);
+      if (!silent) {
+        setLoading(true);
       }
-    }
-  }, [sessionId, fullConversation]);
+      setError(null);
+      try {
+        let url: string;
+        if (fullConversation) {
+          // If user has already loaded full conversation, or loadFull is explicitly requested,
+          // fetch all messages without limit
+          const shouldLoadFull = loadFull || isFullConversationLoadedRef.current;
+          const limit = shouldLoadFull ? 0 : initialMessageLimit;
+          url =
+            limit > 0
+              ? `${API_BASE}/sessions/${sessionId}?full=true&limit=${limit}`
+              : `${API_BASE}/sessions/${sessionId}?full=true`;
+        } else {
+          url = `${API_BASE}/sessions/${sessionId}`;
+        }
+        const response = await axios.get<ApiResponse<Session>>(url, {
+          signal: abortController.signal,
+        });
+
+        // Check if this is still the latest request (prevent race condition)
+        if (currentRequestId !== requestIdRef.current) {
+          return;
+        }
+
+        if (response.data.success && response.data.data) {
+          setSession(response.data.data);
+          setHasMoreMessages(response.data.data.hasMoreMessages || false);
+        } else {
+          setError(response.data.error || 'Failed to fetch session');
+        }
+      } catch (err) {
+        // Ignore canceled request errors
+        if (axios.isCancel(err)) {
+          return;
+        }
+
+        // Check if this is still the latest request (prevent race condition)
+        if (currentRequestId !== requestIdRef.current) {
+          return;
+        }
+
+        setError(err instanceof Error ? err.message : 'Failed to fetch session');
+      } finally {
+        // Check if this is still the latest request before updating loading state
+        if (currentRequestId === requestIdRef.current && !silent) {
+          setLoading(false);
+        }
+      }
+    },
+    [sessionId, fullConversation, initialMessageLimit]
+  );
+
+  // Load full conversation (all messages)
+  const loadFullConversation = useCallback(async () => {
+    isFullConversationLoadedRef.current = true;
+    await fetchSession(false, true);
+  }, [fetchSession]);
 
   useEffect(() => {
+    // Reset full conversation flag when session changes
+    isFullConversationLoadedRef.current = false;
     fetchSession(false);
 
     // Cleanup: cancel in-flight request and increment request ID
@@ -190,7 +224,15 @@ export function useSession(sessionId: string | null, pollInterval: number = 0, f
     return () => clearInterval(intervalId);
   }, [sessionId, pollInterval, fetchSession]);
 
-  return { session, loading, error, refetch: () => fetchSession(false), setSession };
+  return {
+    session,
+    loading,
+    error,
+    hasMoreMessages,
+    refetch: () => fetchSession(false),
+    setSession,
+    loadFullConversation,
+  };
 }
 
 export function useProjects() {

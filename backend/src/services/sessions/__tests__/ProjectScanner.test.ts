@@ -1,4 +1,5 @@
 import { ProjectScanner } from '../ProjectScanner';
+import { SessionCache } from '../SessionCache';
 import * as fs from 'fs/promises';
 import { createReadStream } from 'fs';
 import readline from 'readline';
@@ -11,11 +12,13 @@ jest.mock('readline');
 
 describe('ProjectScanner', () => {
   let scanner: ProjectScanner;
+  let mockCache: SessionCache;
   const mockProjectsDir = '/mock/projects';
 
   beforeEach(() => {
     jest.clearAllMocks();
-    scanner = new ProjectScanner({ projectsDir: mockProjectsDir });
+    mockCache = new SessionCache();
+    scanner = new ProjectScanner({ projectsDir: mockProjectsDir, cache: mockCache });
   });
 
   describe('scanProjectsDirectory', () => {
