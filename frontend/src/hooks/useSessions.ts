@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import type { Session, Project, DashboardStats, ApiResponse, Team } from '../types';
 
@@ -12,7 +12,24 @@ export function useSessions(pollInterval: number = DEFAULT_POLL_INTERVAL_MS) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // AbortController for canceling in-flight requests
+  const abortControllerRef = useRef<AbortController | null>(null);
+  // Request ID to prevent race conditions
+  const requestIdRef = useRef<number>(0);
+
   const fetchSessions = useCallback(async (forceRefresh = false, silent = false) => {
+    // Cancel previous request if exists
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Create new AbortController for this request
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
+    // Increment request ID for this request
+    const currentRequestId = ++requestIdRef.current;
+
     if (!silent) {
       setLoading(true);
     }
@@ -23,16 +40,34 @@ export function useSessions(pollInterval: number = DEFAULT_POLL_INTERVAL_MS) {
           _t: Date.now(), // Add timestamp to bypass browser cache
           ...(forceRefresh && { refresh: 'true' }), // Force backend to reload from disk
         },
+        signal: abortController.signal,
       });
+
+      // Check if this is still the latest request (prevent race condition)
+      if (currentRequestId !== requestIdRef.current) {
+        return;
+      }
+
       if (response.data.success && response.data.data) {
         setSessions(response.data.data);
       } else {
         setError(response.data.error || 'Failed to fetch sessions');
       }
     } catch (err) {
+      // Ignore canceled request errors
+      if (axios.isCancel(err)) {
+        return;
+      }
+
+      // Check if this is still the latest request (prevent race condition)
+      if (currentRequestId !== requestIdRef.current) {
+        return;
+      }
+
       setError(err instanceof Error ? err.message : 'Failed to fetch sessions');
     } finally {
-      if (!silent) {
+      // Check if this is still the latest request before updating loading state
+      if (currentRequestId === requestIdRef.current && !silent) {
         setLoading(false);
       }
     }
@@ -41,6 +76,14 @@ export function useSessions(pollInterval: number = DEFAULT_POLL_INTERVAL_MS) {
   // Initial fetch
   useEffect(() => {
     fetchSessions(false);
+
+    // Cleanup: cancel in-flight request and increment request ID
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      requestIdRef.current++;
+    };
   }, [fetchSessions]);
 
   // Polling for sessions list updates
@@ -62,8 +105,26 @@ export function useSession(sessionId: string | null, pollInterval: number = 0, f
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // AbortController for canceling in-flight requests
+  const abortControllerRef = useRef<AbortController | null>(null);
+  // Request ID to prevent race conditions
+  const requestIdRef = useRef<number>(0);
+
   const fetchSession = useCallback(async (silent = false) => {
     if (!sessionId) return;
+
+    // Cancel previous request if exists
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Create new AbortController for this request
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
+    // Increment request ID for this request
+    const currentRequestId = ++requestIdRef.current;
+
     if (!silent) {
       setLoading(true);
     }
@@ -72,16 +133,35 @@ export function useSession(sessionId: string | null, pollInterval: number = 0, f
       const url = fullConversation
         ? `${API_BASE}/sessions/${sessionId}?full=true`
         : `${API_BASE}/sessions/${sessionId}`;
-      const response = await axios.get<ApiResponse<Session>>(url);
+      const response = await axios.get<ApiResponse<Session>>(url, {
+        signal: abortController.signal,
+      });
+
+      // Check if this is still the latest request (prevent race condition)
+      if (currentRequestId !== requestIdRef.current) {
+        return;
+      }
+
       if (response.data.success && response.data.data) {
         setSession(response.data.data);
       } else {
         setError(response.data.error || 'Failed to fetch session');
       }
     } catch (err) {
+      // Ignore canceled request errors
+      if (axios.isCancel(err)) {
+        return;
+      }
+
+      // Check if this is still the latest request (prevent race condition)
+      if (currentRequestId !== requestIdRef.current) {
+        return;
+      }
+
       setError(err instanceof Error ? err.message : 'Failed to fetch session');
     } finally {
-      if (!silent) {
+      // Check if this is still the latest request before updating loading state
+      if (currentRequestId === requestIdRef.current && !silent) {
         setLoading(false);
       }
     }
@@ -89,6 +169,14 @@ export function useSession(sessionId: string | null, pollInterval: number = 0, f
 
   useEffect(() => {
     fetchSession(false);
+
+    // Cleanup: cancel in-flight request and increment request ID
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      requestIdRef.current++;
+    };
   }, [fetchSession]);
 
   // Optional polling as fallback when WebSocket is not working

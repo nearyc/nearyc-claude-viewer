@@ -48,17 +48,33 @@ function AppContent() {
   // Decode project path from URL
   const decodedProjectPath = selectedProject ? decodeURIComponent(selectedProject) : null;
 
-  // Fetch data with 10s polling instead of SSE
-  const { sessions: fetchedSessions, refetch: refetchSessions, loading: sessionsLoading } = useSessions(10000);
-  const { projects: fetchedProjects, refetch: refetchProjects } = useProjects();
-  const { stats: fetchedStats, refetch: refetchStats } = useDashboardStats();
-  const { teams: fetchedTeams, refetch: refetchTeams, loading: teamsLoading } = useTeams(10000); // 10s polling
-  const { session: selectedSession, refetch: refetchSelectedSession } = useSession(selectedSessionId, 10000, true);
-  const { team: fetchedTeamData } = useTeam(selectedTeamId, 10000); // 10s polling
-
   // SSE connection state
   const { connectionState } = useServerEvents();
   const isConnected = connectionState === 'connected';
+
+  // Calculate polling interval based on connection state and page visibility
+  const shouldPoll = connectionState !== 'connected';
+  const [isPageVisible, setIsPageVisible] = useState(!document.hidden);
+
+  // Polling interval for sessions/teams list: fixed 5s when page visible
+  const listPollingInterval = useMemo(() => {
+    if (!isPageVisible) return 0;
+    return 5000; // Fixed 5s interval for sessions/teams list
+  }, [isPageVisible]);
+
+  // Polling interval for selected session: 5s when not connected, 0 when connected
+  const sessionPollingInterval = useMemo(() => {
+    if (!isPageVisible) return 0;
+    return shouldPoll ? 5000 : 0;
+  }, [shouldPoll, isPageVisible]);
+
+  // Fetch data with dynamic polling based on SSE connection state
+  const { sessions: fetchedSessions, refetch: refetchSessions, loading: sessionsLoading } = useSessions(listPollingInterval);
+  const { projects: fetchedProjects, refetch: refetchProjects } = useProjects();
+  const { stats: fetchedStats, refetch: refetchStats } = useDashboardStats();
+  const { teams: fetchedTeams, refetch: refetchTeams, loading: teamsLoading } = useTeams(listPollingInterval);
+  const { session: selectedSession, refetch: refetchSelectedSession } = useSession(selectedSessionId, sessionPollingInterval, true);
+  const { team: fetchedTeamData } = useTeam(selectedTeamId, sessionPollingInterval);
 
   // Update local state when data is fetched - 合并为一个 useEffect
   useEffect(() => {
@@ -69,8 +85,28 @@ function AppContent() {
     if (fetchedTeamData) setTeamData(fetchedTeamData);
   }, [fetchedSessions, fetchedProjects, fetchedStats, fetchedTeams, fetchedTeamData]);
 
-  // SSE events - only refresh selected session for real-time updates
-  // Sessions list uses polling (10s) to reduce load
+  // Page visibility change listener - pause/resume polling
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      const isVisible = !document.hidden;
+      setIsPageVisible(isVisible);
+
+      if (isVisible) {
+        // Page became visible - refresh data immediately
+        refetchSessions();
+        refetchTeams();
+        refetchStats();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [refetchSessions, refetchTeams, refetchStats]);
+
+  // SSE events - refresh selected session in real-time
+  // Sessions/teams list uses both SSE + 5s polling for data consistency
   useEffect(() => {
     const handleSessionChanged = (event: CustomEvent) => {
       console.log('[App] SSE sessionChanged:', event.detail);
