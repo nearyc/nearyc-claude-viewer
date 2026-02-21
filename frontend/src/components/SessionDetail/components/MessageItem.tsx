@@ -1,11 +1,13 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { User, Bot, Sparkles, Bookmark, BookmarkCheck, MoreHorizontal, ChevronUp } from 'lucide-react';
+import { User, Bot, Sparkles, Bookmark, BookmarkCheck, MoreHorizontal, ChevronUp, ChevronDown, Brain } from 'lucide-react';
 import type { ChatMessage } from '../../../types';
 import { escapeRegExp } from '../utils/escapeRegExp';
 import { formatRelativeTime } from '../../../utils/time';
 
 const MESSAGE_PREVIEW_LENGTH = 300;
 const MESSAGE_MIN_LENGTH_TO_COLLAPSE = 500;
+const THINKING_MAX_LINES = 6;
+const THINKING_LINE_HEIGHT = 20; // Approximate line height in pixels
 
 interface MessageItemProps {
   message: ChatMessage;
@@ -31,10 +33,29 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   onToggleCollapse,
 }) => {
   const isUser = message.role === 'user';
+  const isThinking = message.type === 'thinking';
   const itemRef = useRef<HTMLDivElement>(null);
-  const shouldCollapse = message.content.length > MESSAGE_MIN_LENGTH_TO_COLLAPSE;
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  // Regular message collapse logic
+  const shouldCollapse = !isThinking && message.content.length > MESSAGE_MIN_LENGTH_TO_COLLAPSE;
   const [internalCollapsed, setInternalCollapsed] = useState(shouldCollapse);
   const isCollapsed = controlledCollapsed !== undefined ? controlledCollapsed : internalCollapsed;
+
+  // Thinking collapse logic - auto-collapse if more than 6 lines
+  const [thinkingExpanded, setThinkingExpanded] = useState(false);
+  const [shouldThinkingCollapse, setShouldThinkingCollapse] = useState(false);
+
+  // Check if thinking content exceeds 6 lines
+  useEffect(() => {
+    if (isThinking && contentRef.current) {
+      const element = contentRef.current;
+      const lineHeight = parseInt(getComputedStyle(element).lineHeight) || THINKING_LINE_HEIGHT;
+      const height = element.scrollHeight;
+      const lines = Math.round(height / lineHeight);
+      setShouldThinkingCollapse(lines > THINKING_MAX_LINES);
+    }
+  }, [isThinking, message.content]);
 
   // Check if message is "just now" (within 20 seconds) and auto-update
   const [isJustNow, setIsJustNow] = useState(() => {
@@ -121,6 +142,27 @@ export const MessageItem: React.FC<MessageItemProps> = ({
     );
   };
 
+  // Calculate thinking content height for smooth animation
+  const getThinkingContentStyle = (): React.CSSProperties => {
+    if (!isThinking || !shouldThinkingCollapse) {
+      return {};
+    }
+    if (thinkingExpanded) {
+      return {
+        maxHeight: '2000px', // Large enough to fit expanded content
+        overflow: 'hidden',
+        transition: 'max-height 0.3s ease-out',
+      };
+    }
+    return {
+      maxHeight: `${THINKING_MAX_LINES * THINKING_LINE_HEIGHT}px`,
+      overflow: 'hidden',
+      transition: 'max-height 0.3s ease-in',
+      maskImage: 'linear-gradient(to bottom, black 60%, transparent 100%)',
+      WebkitMaskImage: 'linear-gradient(to bottom, black 60%, transparent 100%)',
+    };
+  };
+
   return (
     <div
       ref={itemRef}
@@ -129,7 +171,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
       data-message-id={message.uuid}
       className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-3 md:mb-4 transition-all duration-500 ${
         isLatest ? 'animate-pulse' : ''
-      }`}
+      } ${isThinking ? 'thinking-message' : ''}`}
     >
       <div
         className={`flex gap-2 md:gap-3 max-w-[92%] md:max-w-[85%] ${
@@ -140,20 +182,42 @@ export const MessageItem: React.FC<MessageItemProps> = ({
         <div
           className="flex-shrink-0 w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center border"
           style={{
-            backgroundColor: isUser ? 'var(--accent-blue-subtle)' : 'var(--accent-purple-subtle)',
-            color: isUser ? 'var(--accent-blue)' : 'var(--accent-purple)',
-            borderColor: isUser ? 'var(--accent-blue-medium)' : 'var(--accent-purple-medium)',
+            backgroundColor: isUser
+              ? 'var(--accent-blue-subtle)'
+              : isThinking
+                ? 'var(--accent-amber-subtle)'
+                : 'var(--accent-purple-subtle)',
+            color: isUser ? 'var(--accent-blue)' : isThinking ? 'var(--accent-amber)' : 'var(--accent-purple)',
+            borderColor: isUser
+              ? 'var(--accent-blue-medium)'
+              : isThinking
+                ? 'var(--accent-amber-medium)'
+                : 'var(--accent-purple-medium)',
           }}
         >
-          {isUser ? <User className="w-3.5 h-3.5 md:w-4 md:h-4" /> : <Bot className="w-3.5 h-3.5 md:w-4 md:h-4" />}
+          {isUser ? (
+            <User className="w-3.5 h-3.5 md:w-4 md:h-4" />
+          ) : isThinking ? (
+            <Brain className="w-3.5 h-3.5 md:w-4 md:h-4" />
+          ) : (
+            <Bot className="w-3.5 h-3.5 md:w-4 md:h-4" />
+          )}
         </div>
 
         {/* Message Bubble */}
         <div
           className="rounded-2xl px-3 py-2.5 md:px-4 md:py-3 relative group"
           style={{
-            backgroundColor: isUser ? 'var(--accent-blue-subtle)' : 'var(--bg-card)',
-            borderColor: isUser ? 'var(--accent-blue-medium)' : 'var(--border-primary)',
+            backgroundColor: isUser
+              ? 'var(--accent-blue-subtle)'
+              : isThinking
+                ? 'var(--accent-amber-subtle)'
+                : 'var(--bg-card)',
+            borderColor: isUser
+              ? 'var(--accent-blue-medium)'
+              : isThinking
+                ? 'var(--accent-amber-medium)'
+                : 'var(--border-primary)',
             borderWidth: '1px',
             borderRadius: isUser ? '1rem 1rem 0.25rem 1rem' : '1rem 1rem 1rem 0.25rem',
             ...(isStreaming ? {
@@ -165,6 +229,9 @@ export const MessageItem: React.FC<MessageItemProps> = ({
             ...(isJustNow ? {
               boxShadow: '0 0 0 2px var(--accent-green)',
             } : {}),
+            ...(isThinking ? {
+              fontStyle: 'italic',
+            } : {}),
           }}
         >
           {/* Role Label & Actions */}
@@ -175,11 +242,17 @@ export const MessageItem: React.FC<MessageItemProps> = ({
           >
             <span
               className="text-xs font-medium"
-              style={{ color: isUser ? 'var(--accent-blue-light)' : 'var(--accent-purple)' }}
+              style={{
+                color: isUser
+                  ? 'var(--accent-blue-light)'
+                  : isThinking
+                    ? 'var(--accent-amber)'
+                    : 'var(--accent-purple)',
+              }}
             >
-              {isUser ? 'You' : 'Claude'}
+              {isUser ? 'You' : isThinking ? 'Thinking' : 'Claude'}
             </span>
-            {isStreaming && (
+            {isStreaming && !isThinking && (
               <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--accent-purple)' }}>
                 <Sparkles className="w-3 h-3 animate-pulse" />
                 typing...
@@ -223,11 +296,39 @@ export const MessageItem: React.FC<MessageItemProps> = ({
 
           {/* Content */}
           <div
-            className="text-sm whitespace-pre-wrap break-words overflow-x-auto"
-            style={{ color: 'var(--text-secondary)' }}
+            ref={contentRef}
+            className={`text-sm whitespace-pre-wrap break-words overflow-x-auto ${isThinking ? 'thinking-content' : ''}`}
+            style={{
+              color: isThinking ? 'var(--text-muted)' : 'var(--text-secondary)',
+              opacity: isThinking ? 0.8 : 1,
+              ...getThinkingContentStyle(),
+            }}
           >
             {renderContent()}
           </div>
+
+          {/* Thinking Expand/Collapse Button */}
+          {isThinking && shouldThinkingCollapse && (
+            <button
+              onClick={() => setThinkingExpanded(!thinkingExpanded)}
+              className="mt-2 text-xs flex items-center gap-1 transition-colors"
+              style={{ color: 'var(--accent-amber)' }}
+              onMouseEnter={(e) => e.currentTarget.style.color = 'var(--accent-amber-light)'}
+              onMouseLeave={(e) => e.currentTarget.style.color = 'var(--accent-amber)'}
+            >
+              {thinkingExpanded ? (
+                <>
+                  <ChevronUp className="w-3.5 h-3.5" />
+                  Show less
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="w-3.5 h-3.5" />
+                  Show more thinking
+                </>
+              )}
+            </button>
+          )}
 
           {/* Expand/Collapse Button */}
           {shouldCollapse && (
