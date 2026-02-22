@@ -39,6 +39,15 @@ export const eyeCareTheme = {
     '--accent-purple-medium': 'rgba(122, 107, 138, 0.3)',
     '--accent-gray-subtle': 'rgba(140, 134, 124, 0.15)',
     '--accent-gray-medium': 'rgba(140, 134, 124, 0.3)',
+    // Thinking message styles (eye-care friendly purple tones)
+    '--thinking-bg': 'rgba(122, 107, 138, 0.15)',
+    '--thinking-border': 'rgba(122, 107, 138, 0.4)',
+    '--thinking-text': 'rgba(160, 150, 170, 0.95)',
+    '--thinking-text-muted': 'rgba(160, 150, 170, 0.6)',
+    '--thinking-icon': 'rgba(140, 130, 155, 1)',
+    '--thinking-label-bg': 'rgba(122, 107, 138, 0.25)',
+    '--thinking-label-text': 'rgba(175, 165, 185, 1)',
+    '--thinking-glow': 'rgba(122, 107, 138, 0.4)',
   },
 };
 

@@ -39,6 +39,15 @@ export const lightEyeCareTheme = {
     '--accent-red-medium': 'rgba(160, 96, 80, 0.3)',
     '--accent-gray-subtle': 'rgba(139, 125, 107, 0.15)',
     '--accent-gray-medium': 'rgba(139, 125, 107, 0.3)',
+    // Thinking message styles (light theme with soft purple)
+    '--thinking-bg': 'rgba(122, 138, 154, 0.12)',
+    '--thinking-border': 'rgba(122, 138, 154, 0.35)',
+    '--thinking-text': 'rgba(90, 108, 125, 0.95)',
+    '--thinking-text-muted': 'rgba(90, 108, 125, 0.6)',
+    '--thinking-icon': 'rgba(100, 118, 135, 1)',
+    '--thinking-label-bg': 'rgba(122, 138, 154, 0.2)',
+    '--thinking-label-text': 'rgba(75, 95, 115, 1)',
+    '--thinking-glow': 'rgba(122, 138, 154, 0.4)',
   },
 };
 

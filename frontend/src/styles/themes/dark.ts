@@ -39,6 +39,15 @@ export const darkTheme = {
     '--accent-purple-medium': 'rgba(139, 92, 246, 0.2)',
     '--accent-gray-subtle': 'rgba(148, 163, 184, 0.15)',
     '--accent-gray-medium': 'rgba(148, 163, 184, 0.3)',
+    // Thinking message styles
+    '--thinking-bg': 'rgba(139, 92, 246, 0.1)',
+    '--thinking-border': 'rgba(139, 92, 246, 0.4)',
+    '--thinking-text': 'rgba(167, 139, 250, 0.95)',
+    '--thinking-text-muted': 'rgba(167, 139, 250, 0.6)',
+    '--thinking-icon': 'rgba(139, 92, 246, 1)',
+    '--thinking-label-bg': 'rgba(139, 92, 246, 0.2)',
+    '--thinking-label-text': 'rgba(167, 139, 250, 1)',
+    '--thinking-glow': 'rgba(139, 92, 246, 0.5)',
   },
 };
 

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { MessageSquare, Search, Star, Trash2, RefreshCw, Tag, CheckSquare, Filter, X } from 'lucide-react';
+import { MessageSquare, Search, Star, Trash2, RefreshCw, Tag, CheckSquare, Filter, X, Hash } from 'lucide-react';
 import { useMobile } from '../contexts/MobileContext';
 import type { Session } from '../types';
 import { isSystemContent } from '../utils/session';
@@ -62,6 +62,10 @@ export const SessionList: React.FC<SessionListProps> = ({
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [showToast, setShowToast] = useState(false);
+  // Message count filter states
+  const [minMessageCount, setMinMessageCount] = useState<number | null>(null);
+  const [maxMessageCount, setMaxMessageCount] = useState<number | null>(null);
+  const [showMessageCountFilter, setShowMessageCountFilter] = useState(false);
   const { getSessionName, hasCustomName, setSessionName, removeSessionName } = useSessionNames();
   const { getSessionTags, getAllTags, getTagCounts } = useSessionTags();
 
@@ -110,11 +114,19 @@ export const SessionList: React.FC<SessionListProps> = ({
       });
     }
 
+    // Filter by message count range
+    if (minMessageCount !== null) {
+      filtered = filtered.filter((s) => s.messageCount >= minMessageCount);
+    }
+    if (maxMessageCount !== null) {
+      filtered = filtered.filter((s) => s.messageCount <= maxMessageCount);
+    }
+
     // Sort: by updatedAt only (no special treatment for starred sessions)
     return [...filtered].sort((a, b) => {
       return b.updatedAt - a.updatedAt;
     });
-  }, [sessions, searchQuery, projectFilter, showOnlyStarred, selectedTag, getSessionTags]);
+  }, [sessions, searchQuery, projectFilter, showOnlyStarred, selectedTag, getSessionTags, minMessageCount, maxMessageCount]);
 
   const handleDeleteClick = (e: React.MouseEvent, session: Session) => {
     e.stopPropagation();
@@ -235,9 +247,9 @@ export const SessionList: React.FC<SessionListProps> = ({
               title={t('filter.title')}
               className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-full text-xs transition-all"
               style={{
-                backgroundColor: (showOnlyStarred || selectedTag) ? 'rgba(59, 130, 246, 0.2)' : 'var(--bg-tertiary)',
-                color: (showOnlyStarred || selectedTag) ? 'rgb(96, 165, 250)' : 'var(--text-muted)',
-                border: `1px solid ${(showOnlyStarred || selectedTag) ? 'rgba(59, 130, 246, 0.3)' : 'var(--border-primary)'}`,
+                backgroundColor: (showOnlyStarred || selectedTag || minMessageCount !== null || maxMessageCount !== null) ? 'rgba(59, 130, 246, 0.2)' : 'var(--bg-tertiary)',
+                color: (showOnlyStarred || selectedTag || minMessageCount !== null || maxMessageCount !== null) ? 'rgb(96, 165, 250)' : 'var(--text-muted)',
+                border: `1px solid ${(showOnlyStarred || selectedTag || minMessageCount !== null || maxMessageCount !== null) ? 'rgba(59, 130, 246, 0.3)' : 'var(--border-primary)'}`,
               }}
             >
               <Filter className="w-4 h-4" />
@@ -285,6 +297,156 @@ export const SessionList: React.FC<SessionListProps> = ({
                   </span>
                 )}
               </button>
+            </div>
+          )}
+
+          {/* Desktop: Message count filter button */}
+          {!isMobile && (
+            <div className="relative hidden md:block">
+              <button
+                onClick={() => setShowMessageCountFilter(!showMessageCountFilter)}
+                title={t('filter.messageCount') || 'Message Count'}
+                className="flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-all"
+                style={{
+                  backgroundColor: (minMessageCount !== null || maxMessageCount !== null) ? 'rgba(16, 185, 129, 0.2)' : 'var(--bg-tertiary)',
+                  color: (minMessageCount !== null || maxMessageCount !== null) ? 'rgb(16, 185, 129)' : 'var(--text-muted)',
+                  border: `1px solid ${(minMessageCount !== null || maxMessageCount !== null) ? 'rgba(16, 185, 129, 0.3)' : 'var(--border-primary)'}`,
+                }}
+              >
+                <Hash className="w-3 h-3" />
+                <span>
+                  {minMessageCount !== null && maxMessageCount !== null
+                    ? `${minMessageCount}-${maxMessageCount}`
+                    : minMessageCount !== null
+                    ? `>${minMessageCount}`
+                    : maxMessageCount !== null
+                    ? `<${maxMessageCount}`
+                    : t('filter.messageCount') || 'Count'}
+                </span>
+              </button>
+
+              {/* Message count filter dropdown */}
+              {showMessageCountFilter && (
+                <div
+                  className="absolute top-full left-0 mt-2 p-3 rounded-lg border shadow-lg z-50 min-w-[200px]"
+                  style={{
+                    backgroundColor: 'var(--bg-primary)',
+                    borderColor: 'var(--border-primary)',
+                  }}
+                >
+                  <div className="space-y-3">
+                    {/* Min message count */}
+                    <div>
+                      <label className="text-xs block mb-1" style={{ color: 'var(--text-secondary)' }}>
+                        {t('filter.minMessages') || 'Min Messages'}
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={minMessageCount ?? ''}
+                        onChange={(e) => {
+                          const val = e.target.value ? parseInt(e.target.value, 10) : null;
+                          setMinMessageCount(val);
+                        }}
+                        placeholder="0"
+                        className="w-full px-2 py-1 rounded text-sm"
+                        style={{
+                          backgroundColor: 'var(--bg-secondary)',
+                          border: '1px solid var(--border-primary)',
+                          color: 'var(--text-primary)',
+                        }}
+                      />
+                    </div>
+
+                    {/* Max message count */}
+                    <div>
+                      <label className="text-xs block mb-1" style={{ color: 'var(--text-secondary)' }}>
+                        {t('filter.maxMessages') || 'Max Messages'}
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={maxMessageCount ?? ''}
+                        onChange={(e) => {
+                          const val = e.target.value ? parseInt(e.target.value, 10) : null;
+                          setMaxMessageCount(val);
+                        }}
+                        placeholder="∞"
+                        className="w-full px-2 py-1 rounded text-sm"
+                        style={{
+                          backgroundColor: 'var(--bg-secondary)',
+                          border: '1px solid var(--border-primary)',
+                          color: 'var(--text-primary)',
+                        }}
+                      />
+                    </div>
+
+                    {/* Quick options */}
+                    <div className="flex flex-wrap gap-1">
+                      {[10, 50, 100].map((count) => (
+                        <button
+                          key={`min-${count}`}
+                          onClick={() => {
+                            setMinMessageCount(count);
+                            setMaxMessageCount(null);
+                          }}
+                          className="px-2 py-0.5 rounded text-xs transition-colors"
+                          style={{
+                            backgroundColor: minMessageCount === count && maxMessageCount === null
+                              ? 'rgba(16, 185, 129, 0.2)'
+                              : 'var(--bg-tertiary)',
+                            color: minMessageCount === count && maxMessageCount === null
+                              ? 'rgb(16, 185, 129)'
+                              : 'var(--text-muted)',
+                            border: '1px solid var(--border-primary)',
+                          }}
+                        >
+                          {'>'}{count}
+                        </button>
+                      ))}
+                      {[10, 50].map((count) => (
+                        <button
+                          key={`max-${count}`}
+                          onClick={() => {
+                            setMinMessageCount(null);
+                            setMaxMessageCount(count);
+                          }}
+                          className="px-2 py-0.5 rounded text-xs transition-colors"
+                          style={{
+                            backgroundColor: maxMessageCount === count && minMessageCount === null
+                              ? 'rgba(16, 185, 129, 0.2)'
+                              : 'var(--bg-tertiary)',
+                            color: maxMessageCount === count && minMessageCount === null
+                              ? 'rgb(16, 185, 129)'
+                              : 'var(--text-muted)',
+                            border: '1px solid var(--border-primary)',
+                          }}
+                        >
+                          {'<'}{count}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Clear button */}
+                    {(minMessageCount !== null || maxMessageCount !== null) && (
+                      <button
+                        onClick={() => {
+                          setMinMessageCount(null);
+                          setMaxMessageCount(null);
+                        }}
+                        className="w-full px-2 py-1 rounded text-xs transition-colors"
+                        style={{
+                          backgroundColor: 'var(--bg-tertiary)',
+                          color: 'var(--text-muted)',
+                          border: '1px solid var(--border-primary)',
+                        }}
+                      >
+                        {t('filter.clear') || 'Clear'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -371,6 +533,57 @@ export const SessionList: React.FC<SessionListProps> = ({
                   </button>
                 );
               })}
+
+              {/* Message count quick filters */}
+              {[10, 50, 100].map((count) => (
+                <button
+                  key={`mobile-min-${count}`}
+                  onClick={() => {
+                    if (minMessageCount === count && maxMessageCount === null) {
+                      setMinMessageCount(null);
+                    } else {
+                      setMinMessageCount(count);
+                      setMaxMessageCount(null);
+                    }
+                  }}
+                  className="flex items-center gap-1 px-3 py-2 rounded-full text-sm transition-all min-h-[44px]"
+                  style={{
+                    backgroundColor: minMessageCount === count && maxMessageCount === null
+                      ? 'rgba(16, 185, 129, 0.2)'
+                      : 'var(--bg-tertiary)',
+                    color: minMessageCount === count && maxMessageCount === null
+                      ? 'rgb(16, 185, 129)'
+                      : 'var(--text-muted)',
+                    border: `1px solid ${minMessageCount === count && maxMessageCount === null
+                      ? 'rgba(16, 185, 129, 0.3)'
+                      : 'var(--border-primary)'}`,
+                  }}
+                >
+                  <Hash className="w-3 h-3" />
+                  {'>'}{count}
+                </button>
+              ))}
+
+              {/* Clear all filters */}
+              {(showOnlyStarred || selectedTag || minMessageCount !== null || maxMessageCount !== null) && (
+                <button
+                  onClick={() => {
+                    setShowOnlyStarred(false);
+                    setSelectedTag(null);
+                    setMinMessageCount(null);
+                    setMaxMessageCount(null);
+                  }}
+                  className="flex items-center gap-1 px-3 py-2 rounded-full text-sm transition-all min-h-[44px]"
+                  style={{
+                    backgroundColor: 'var(--bg-tertiary)',
+                    color: 'var(--text-muted)',
+                    border: '1px solid var(--border-primary)',
+                  }}
+                >
+                  <X className="w-3 h-3" />
+                  {t('filter.clearFilters')}
+                </button>
+              )}
             </div>
           </div>
         )}

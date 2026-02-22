@@ -3,6 +3,7 @@ import { User, Bot, Sparkles, Bookmark, BookmarkCheck, MoreHorizontal, ChevronUp
 import type { ChatMessage } from '../../../types';
 import { escapeRegExp } from '../utils/escapeRegExp';
 import { formatRelativeTime } from '../../../utils/time';
+import { ThinkingMessage } from './ThinkingMessage';
 
 const MESSAGE_PREVIEW_LENGTH = 300;
 const MESSAGE_MIN_LENGTH_TO_COLLAPSE = 500;
@@ -31,10 +32,28 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   onToggleCollapse,
 }) => {
   const isUser = message.role === 'user';
+  const isThinking = message.type === 'thinking';
   const itemRef = useRef<HTMLDivElement>(null);
   const shouldCollapse = message.content.length > MESSAGE_MIN_LENGTH_TO_COLLAPSE;
   const [internalCollapsed, setInternalCollapsed] = useState(shouldCollapse);
   const isCollapsed = controlledCollapsed !== undefined ? controlledCollapsed : internalCollapsed;
+
+  // Render thinking message with special styling
+  if (isThinking) {
+    return (
+      <ThinkingMessage
+        message={message}
+        index={index}
+        isLatest={isLatest}
+        isStreaming={isStreaming}
+        searchQuery={searchQuery}
+        isBookmarked={isBookmarked}
+        onToggleBookmark={onToggleBookmark}
+        isCollapsed={isCollapsed}
+        onToggleCollapse={onToggleCollapse}
+      />
+    );
+  }
 
   // Check if message is "just now" (within 20 seconds) and auto-update
   const [isJustNow, setIsJustNow] = useState(() => {
