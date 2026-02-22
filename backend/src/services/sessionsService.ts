@@ -88,14 +88,14 @@ export class SessionsService {
     return this.repository.searchSessions(query);
   }
 
-  // Handle file changes
+  // Handle file changes with incremental updates
   async handleFileChange(event: FileWatcherEvent): Promise<{
     type: 'sessions' | 'session' | null;
     sessionId?: string;
   }> {
-    // Handle addDir events - trigger a full reload
+    // Handle addDir events - trigger an incremental reload
     if (event.type === 'addDir') {
-      this.clearCache();
+      console.log('[FileWatcher] New project directory detected, incremental reload');
       await this.loadSessions();
       return { type: 'sessions' };
     }
@@ -105,10 +105,10 @@ export class SessionsService {
     const normalizedHistoryPath = path.normalize(this.historyFilePath);
 
     if (normalizedPath === normalizedHistoryPath) {
-      // History file changed, reload all sessions
-      this.clearCache();
+      // History file changed, use incremental loading (no cache clear needed)
+      console.log('[FileWatcher] History file changed, incremental reload');
       await this.loadSessions();
-      console.log('[FileWatcher] Sessions data reloaded');
+      console.log('[FileWatcher] Sessions data incrementally reloaded');
       return { type: 'sessions' };
     }
 
@@ -121,9 +121,8 @@ export class SessionsService {
 
       // Skip subagent files
       if (!fileName.includes('/subagents/') && !event.path.includes('subagents')) {
-        console.log(`[FileWatcher] Session file changed: ${sessionId}`);
-        // Clear cache and reload sessions to pick up any new sessions
-        this.clearCache();
+        console.log(`[FileWatcher] Session file changed: ${sessionId}, using incremental update`);
+        // Use incremental loading instead of clearing cache
         await this.loadSessions();
         return { type: 'session', sessionId };
       }
@@ -167,12 +166,15 @@ export class SessionsService {
   }
 
   // Get session with full conversation
-  async getSessionWithConversation(sessionId: string): Promise<Session | null> {
+  async getSessionWithConversation(
+    sessionId: string,
+    options: { limit?: number } = {}
+  ): Promise<Session | null> {
     const session = await this.getSessionById(sessionId);
     if (!session) return null;
 
-    // Load full conversation
-    const messages = await this.loadFullConversation(sessionId, session.project);
+    const { messages, totalCount, hasMore } = await this.conversationLoader
+      .loadConversationWithLimit(sessionId, session.project, options);
 
     // Calculate updatedAt from the latest message timestamp
     let updatedAt = session.updatedAt;
@@ -185,8 +187,43 @@ export class SessionsService {
     return {
       ...session,
       messages,
-      messageCount: messages.length,
+      messageCount: totalCount,
+      hasMore,
       updatedAt,
     };
+  }
+
+  // Get session messages with pagination
+  async getSessionMessages(
+    sessionId: string,
+    offset: number,
+    limit: number | 'all'
+  ): Promise<{
+    messages: ChatMessage[];
+    total: number;
+    offset: number;
+    limit: number | 'all';
+    hasMore: boolean;
+  }> {
+    const session = await this.getSessionById(sessionId);
+    if (!session) {
+      throw new Error(`Session ${sessionId} not found`);
+    }
+
+    const allMessages = await this.loadFullConversation(sessionId, session.project);
+    const total = allMessages.length;
+
+    let messages: ChatMessage[];
+    if (limit === 'all') {
+      messages = allMessages.slice(offset);
+      console.log(`[SessionsService] Returning ${messages.length} messages from offset ${offset} for ${sessionId}`);
+    } else {
+      messages = allMessages.slice(offset, offset + limit);
+      console.log(`[SessionsService] Returning ${messages.length} messages (offset: ${offset}, limit: ${limit}) for ${sessionId}`);
+    }
+
+    const hasMore = limit !== 'all' && offset + (limit as number) < total;
+
+    return { messages, total, offset, limit, hasMore };
   }
 }

@@ -4,6 +4,12 @@ export interface CacheStats {
   sessionsCount: number;
   projectsCount: number;
   lastModified: number;
+  fileCount: number;
+}
+
+export interface FileCacheEntry {
+  mtime: number;
+  size: number;
 }
 
 /**
@@ -12,7 +18,9 @@ export interface CacheStats {
 export class SessionCache {
   private sessionsCache: Map<string, Session> = new Map();
   private projectsCache: Map<string, Project> = new Map();
+  private fileCache: Map<string, FileCacheEntry> = new Map();
   private lastModifiedTime: number = 0;
+  private lastScanTime: number = 0;
 
   /**
    * Get a session from cache
@@ -89,7 +97,9 @@ export class SessionCache {
   clear(): void {
     this.sessionsCache.clear();
     this.projectsCache.clear();
+    this.fileCache.clear();
     this.lastModifiedTime = 0;
+    this.lastScanTime = 0;
   }
 
   /**
@@ -100,6 +110,7 @@ export class SessionCache {
       sessionsCount: this.sessionsCache.size,
       projectsCount: this.projectsCache.size,
       lastModified: this.lastModifiedTime,
+      fileCount: this.fileCache.size,
     };
   }
 
@@ -108,5 +119,124 @@ export class SessionCache {
    */
   hasSessions(): boolean {
     return this.sessionsCache.size > 0;
+  }
+
+  /**
+   * Get file cache entry
+   */
+  getFileCache(filePath: string): FileCacheEntry | undefined {
+    return this.fileCache.get(filePath);
+  }
+
+  /**
+   * Set file cache entry
+   */
+  setFileCache(filePath: string, entry: FileCacheEntry): void {
+    this.fileCache.set(filePath, entry);
+  }
+
+  /**
+   * Check if file needs to be re-scanned
+   */
+  isFileDirty(filePath: string, mtime: number, size: number): boolean {
+    const cached = this.fileCache.get(filePath);
+    if (!cached) return true;
+    return cached.mtime !== mtime || cached.size !== size;
+  }
+
+  /**
+   * Get all cached file paths
+   */
+  getCachedFilePaths(): string[] {
+    return Array.from(this.fileCache.keys());
+  }
+
+  /**
+   * Remove file from cache (for deleted files)
+   */
+  removeFileCache(filePath: string): void {
+    this.fileCache.delete(filePath);
+  }
+
+  /**
+   * Set last scan time
+   */
+  setLastScanTime(time: number): void {
+    this.lastScanTime = time;
+  }
+
+  /**
+   * Get last scan time
+   */
+  getLastScanTime(): number {
+    return this.lastScanTime;
+  }
+
+  /**
+   * Check if a session exists in cache
+   */
+  hasSession(sessionId: string): boolean {
+    return this.sessionsCache.has(sessionId);
+  }
+
+  /**
+   * Remove a session from cache
+   */
+  removeSession(sessionId: string): void {
+    this.sessionsCache.delete(sessionId);
+  }
+
+  /**
+   * Update a single session in cache without triggering full rebuild
+   */
+  updateSession(session: Session): void {
+    this.sessionsCache.set(session.id, session);
+  }
+
+  /**
+   * Update a single project in cache
+   */
+  updateProject(project: Project): void {
+    this.projectsCache.set(project.path, project);
+  }
+
+  /**
+   * Get all cached session IDs
+   */
+  getCachedSessionIds(): string[] {
+    return Array.from(this.sessionsCache.keys());
+  }
+
+  /**
+   * Get all file cache entries as a new Map
+   */
+  getAllFileCache(): Map<string, FileCacheEntry> {
+    return new Map(this.fileCache);
+  }
+
+  /**
+   * Recalculate and update project statistics (sessionCount, lastActive)
+   */
+  updateProjectStats(projectPath: string): void {
+    const project = this.projectsCache.get(projectPath);
+    if (!project) return;
+
+    let sessionCount = 0;
+    let lastActive = 0;
+
+    for (const session of this.sessionsCache.values()) {
+      if (session.project === project.name) {
+        sessionCount++;
+        if (session.updatedAt > lastActive) {
+          lastActive = session.updatedAt;
+        }
+      }
+    }
+
+    this.projectsCache.set(projectPath, {
+      ...project,
+      sessionCount,
+      lastActive,
+    });
   }
 }

@@ -53,7 +53,7 @@ function AppContent() {
   const { projects: fetchedProjects, refetch: refetchProjects } = useProjects();
   const { stats: fetchedStats, refetch: refetchStats } = useDashboardStats();
   const { teams: fetchedTeams, refetch: refetchTeams, loading: teamsLoading } = useTeams(10000); // 10s polling
-  const { session: selectedSession, refetch: refetchSelectedSession } = useSession(selectedSessionId, 10000, true);
+  const { session: selectedSession, refetch: refetchSelectedSession } = useSession(selectedSessionId, 10000, true, 50);
   const { team: fetchedTeamData } = useTeam(selectedTeamId, 10000); // 10s polling
 
   // SSE connection state

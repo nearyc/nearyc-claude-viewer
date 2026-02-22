@@ -116,4 +116,38 @@ export class ConversationLoader {
       return messages;
     }
   }
+
+  /**
+   * Load conversation with limit for pagination
+   */
+  async loadConversationWithLimit(
+    sessionId: string,
+    projectPath: string,
+    options: { limit?: number; offset?: number } = {}
+  ): Promise<{
+    messages: ChatMessage[];
+    totalCount: number;
+    hasMore: boolean;
+  }> {
+    const { limit, offset = 0 } = options;
+
+    // Load all messages first (for backward compatibility)
+    const allMessages = await this.loadFullConversation(sessionId, projectPath);
+    const totalCount = allMessages.length;
+
+    // If limit is specified and total exceeds limit, return only the last 'limit' messages
+    let messages = allMessages;
+    if (limit !== undefined && limit < totalCount) {
+      messages = allMessages.slice(-limit);
+      console.log(`[ConversationLoader] Returning last ${messages.length} of ${totalCount} messages for ${sessionId}`);
+    } else {
+      console.log(`[ConversationLoader] Returning all ${messages.length} messages for ${sessionId}`);
+    }
+
+    return {
+      messages,
+      totalCount,
+      hasMore: totalCount > (offset + messages.length),
+    };
+  }
 }

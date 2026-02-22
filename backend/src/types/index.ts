@@ -64,6 +64,7 @@ export interface Session {
   updatedAt: number;
   inputCount: number;
   messageCount: number;
+  hasMore?: boolean;
 }
 
 // ============================================

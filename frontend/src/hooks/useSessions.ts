@@ -57,7 +57,12 @@ export function useSessions(pollInterval: number = DEFAULT_POLL_INTERVAL_MS) {
   return { sessions, loading, error, refetch: () => fetchSessions(true), setSessions };
 }
 
-export function useSession(sessionId: string | null, pollInterval: number = 0, fullConversation: boolean = true) {
+export function useSession(
+  sessionId: string | null,
+  pollInterval: number = 0,
+  fullConversation: boolean = true,
+  messageLimit?: number
+) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,10 +74,15 @@ export function useSession(sessionId: string | null, pollInterval: number = 0, f
     }
     setError(null);
     try {
-      const url = fullConversation
-        ? `${API_BASE}/sessions/${sessionId}?full=true`
-        : `${API_BASE}/sessions/${sessionId}`;
-      const response = await axios.get<ApiResponse<Session>>(url);
+      const params: Record<string, string> = {};
+      if (fullConversation) {
+        params.full = 'true';
+        if (messageLimit !== undefined) {
+          params.limit = messageLimit.toString();
+        }
+      }
+      const url = `${API_BASE}/sessions/${sessionId}`;
+      const response = await axios.get<ApiResponse<Session>>(url, { params });
       if (response.data.success && response.data.data) {
         setSession(response.data.data);
       } else {
@@ -85,7 +95,7 @@ export function useSession(sessionId: string | null, pollInterval: number = 0, f
         setLoading(false);
       }
     }
-  }, [sessionId, fullConversation]);
+  }, [sessionId, fullConversation, messageLimit]);
 
   useEffect(() => {
     fetchSession(false);

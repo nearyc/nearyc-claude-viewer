@@ -4,6 +4,11 @@
  */
 
 /**
+ * Type definition for SSE event listeners
+ */
+export type SSEEventListener<T = unknown> = (event: T) => void;
+
+/**
  * Configuration options for the SSE client
  */
 export interface CallSSEOptions {

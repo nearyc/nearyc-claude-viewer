@@ -5,6 +5,7 @@ import type { Session } from '../types';
 import { useSessionNames } from '../hooks/useSessionNames';
 import { useSessionTags } from '../hooks/useSessionTags';
 import { useTranslation } from '../hooks/useTranslation';
+import { useLoadMoreMessagesMutation } from '../hooks/useSessionQueries';
 import { ExportDialog } from './ExportDialog';
 import { TagSelector } from './TagSelector';
 import {
@@ -39,6 +40,7 @@ export const SessionDetail: React.FC<SessionDetailProps> = ({ session, isUpdatin
   const { isMobile, openDrawer } = useMobile();
   const { getSessionTags, addTag, removeTag, getAllTags } = useSessionTags();
   const { bookmarks, toggleBookmark } = useBookmarks(session?.sessionId);
+  const loadMoreMutation = useLoadMoreMessagesMutation();
 
   // Derived state for header
   const sessionTags = session ? getSessionTags(session.sessionId) : [];
@@ -143,6 +145,16 @@ export const SessionDetail: React.FC<SessionDetailProps> = ({ session, isUpdatin
   const handleSearchChange = useCallback((query: string) => {
     setSearchQueryInput(query);
   }, []);
+
+  // Handler for loading all messages
+  const handleLoadAll = useCallback(() => {
+    if (session?.sessionId && session.hasMore) {
+      loadMoreMutation.mutate({
+        sessionId: session.sessionId,
+        offset: session.messages.length,
+      });
+    }
+  }, [session, loadMoreMutation]);
 
   const handleCloseSearch = useCallback(() => {
     closeSearch();
@@ -327,6 +339,37 @@ export const SessionDetail: React.FC<SessionDetailProps> = ({ session, isUpdatin
       <div ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto">
         {hasFullConversation ? (
           <>
+            {/* Load all messages button */}
+            {session?.hasMore && (
+              <div
+                className="px-4 py-3 border-b text-center"
+                style={{
+                  borderColor: 'var(--border-primary)',
+                  backgroundColor: 'var(--bg-secondary)',
+                }}
+              >
+                <button
+                  onClick={handleLoadAll}
+                  disabled={loadMoreMutation.isPending}
+                  className="px-4 py-2 text-sm rounded-lg border transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{
+                    color: 'var(--accent-blue)',
+                    borderColor: 'var(--accent-blue)',
+                    backgroundColor: 'transparent',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--accent-blue-subtle)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }}
+                >
+                  {loadMoreMutation.isPending
+                    ? '加载中...'
+                    : `加载所有消息 (${session.messageCount} 条)`}
+                </button>
+              </div>
+            )}
             <ConversationView
               messages={sortedMessages}
               bookmarks={bookmarks}

@@ -70,11 +70,15 @@ export function createSessionsRouter(options: SessionsRouterOptions): Router {
   router.get('/:id', async (req, res) => {
     try {
       const { id } = req.params;
-      const { full } = req.query;
+      const { full, limit } = req.query;
 
-      const session = full === 'true'
-        ? await sessionsService.getSessionWithConversation(id)
-        : await sessionsService.getSessionById(id);
+      let session;
+      if (full === 'true') {
+        const limitNum = limit ? parseInt(limit as string, 10) : undefined;  // 不传则返回全部
+        session = await sessionsService.getSessionWithConversation(id, { limit: limitNum });
+      } else {
+        session = await sessionsService.getSessionById(id);
+      }
 
       if (!session) {
         sendError(res, 404, 'Session not found');
@@ -103,6 +107,27 @@ export function createSessionsRouter(options: SessionsRouterOptions): Router {
     } catch (error) {
       console.error('[API] Error getting session:', error);
       sendError(res, 500, 'Failed to get session');
+    }
+  });
+
+  // GET /api/sessions/:id/messages - Get messages with pagination
+  router.get('/:id/messages', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { offset, limit } = req.query;
+
+      const offsetNum = offset ? parseInt(offset as string, 10) : 0;
+      const limitValue = limit === 'all' ? 'all' : parseInt(limit as string, 10) || 100;
+
+      const result = await sessionsService.getSessionMessages(id, offsetNum, limitValue);
+      sendSuccess(res, result);
+    } catch (error) {
+      console.error('[API] Error getting session messages:', error);
+      if ((error as Error).message?.includes('not found')) {
+        sendError(res, 404, 'Session not found');
+      } else {
+        sendError(res, 500, 'Failed to get session messages');
+      }
     }
   });
 

@@ -28,6 +28,7 @@ export class SessionRepository {
   private sessionLoader: SessionLoader;
   private projectScanner: ProjectScanner;
   private conversationLoader: ConversationLoader;
+  private historyFilePosition: number = 0; // Track last read position for incremental loading
 
   constructor(deps: SessionRepositoryDependencies) {
     this.historyFilePath = deps.historyFilePath;
@@ -39,7 +40,7 @@ export class SessionRepository {
   }
 
   /**
-   * Load all sessions (from cache if valid, otherwise from file)
+   * Load all sessions (from cache if valid, otherwise incrementally from file)
    */
   async loadSessions(): Promise<Map<string, Session>> {
     try {
@@ -55,11 +56,29 @@ export class SessionRepository {
       // Update last modified time
       this.cache.setLastModified(stats.mtimeMs);
 
-      // Load sessions from history file
-      const { sessions, projects } = await this.sessionLoader.loadSessions();
+      // Get existing cache as base for incremental loading
+      let sessions = this.cache.getAllSessions();
+      let projects = this.cache.getAllProjects();
 
-      // Scan projects directory to find sessions not in history.jsonl
-      await this.projectScanner.scanProjectsDirectory(sessions, projects);
+      // If cache is empty, do full load first
+      if (sessions.size === 0) {
+        const result = await this.sessionLoader.loadSessions();
+        sessions = result.sessions;
+        projects = result.projects;
+        this.historyFilePosition = 0;
+      }
+
+      // Incrementally load new entries from history.jsonl
+      const incrementalResult = await this.sessionLoader.loadIncremental(
+        sessions,
+        projects,
+        this.historyFilePosition
+      );
+      this.historyFilePosition = incrementalResult.newPosition;
+
+      // Incrementally scan projects directory
+      const fileCache = this.cache.getAllFileCache();
+      await this.projectScanner.scanIncremental(sessions, projects, fileCache);
 
       // Update caches
       this.cache.setSessions(sessions);
@@ -250,6 +269,46 @@ export class SessionRepository {
    */
   getCacheStats() {
     return this.cache.getStats();
+  }
+
+  /**
+   * Update a single session from its file (for incremental updates)
+   */
+  async updateSessionFromFile(sessionId: string, projectSlug: string): Promise<Session | null> {
+    try {
+      const filePath = path.join(this.projectsDir, projectSlug, `${sessionId}.jsonl`);
+
+      // Check if file exists
+      try {
+        await fs.access(filePath);
+      } catch {
+        // File doesn't exist, remove from cache if present
+        this.cache.removeSession(sessionId);
+        return null;
+      }
+
+      // Get file stats for cache update
+      const stats = await fs.stat(filePath);
+      const fileCacheEntry = { mtime: Math.floor(stats.mtimeMs), size: stats.size };
+
+      // Read session info from file using ProjectScanner's logic
+      // We need to create a temporary scanner instance or expose the method
+      // For now, we'll use a simplified approach
+      const { sessions, projects } = await this.sessionLoader.loadSessions();
+      await this.projectScanner.scanProjectsDirectory(sessions, projects);
+
+      const session = sessions.get(sessionId);
+      if (session) {
+        this.cache.updateSession(session);
+        this.cache.setFileCache(filePath, fileCacheEntry);
+        console.log(`[SessionRepository] Updated session ${sessionId} from file`);
+      }
+
+      return session || null;
+    } catch (error) {
+      console.error(`[SessionRepository] Error updating session ${sessionId}:`, error);
+      return null;
+    }
   }
 
   /**
